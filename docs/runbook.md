@@ -15,7 +15,7 @@ All commands run on the server as `deploy`, in `~/all-maker-context`, unless sta
 
 ## AI models
 
-Claude (Anthropic API) tags documents and drafts LinkedIn posts. Ollama runs the embedding model on this server; no external account.
+No paid AI API is used. Tags and LinkedIn drafts are written in the source repos with Claude Code. Ollama runs the embedding model on this server; no external account, no per-use cost.
 
 Pull the embedding model once after the first `docker compose up -d`:
 
@@ -30,7 +30,6 @@ The model lives in the `ollama_models` volume and survives restarts. Changing th
 | Item | Where stored | Expires |
 |---|---|---|
 | GitHub fine-grained PAT | n8n credential | YYYY-MM-DD (fill in) |
-| Anthropic API key | n8n credential | none |
 | Telegram bot token | n8n credential | none |
 | `N8N_ENCRYPTION_KEY` | `.env` + password manager | never rotate without a migration plan |
 | `QDRANT_API_KEY` | `.env` + n8n credential | none |

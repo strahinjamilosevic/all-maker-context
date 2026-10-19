@@ -6,7 +6,9 @@ If `CLAUDE.local.md` exists, read it too. It is gitignored and holds private con
 
 ## 1. What this is
 
-A self-hosted n8n deployment that ingests three existing GitHub repos, structures their content against a controlled taxonomy, flags quality issues, stores it in a vector database, and exposes it to AI agents through an MCP server. A second workflow cross-posts new blog posts to LinkedIn after human approval.
+A self-hosted n8n deployment that ingests three existing GitHub repos, validates their content against a controlled taxonomy, flags quality issues, stores it in a vector database, and exposes it to AI agents through an MCP server. A second workflow cross-posts new blog posts to LinkedIn after human approval.
+
+Tagging happens at the source. Content is tagged in frontmatter when it is written, in the IDE with Claude Code. n8n reads and validates tags; it does not generate them. Issues raised by the quality gate are fixed in the IDE the same way. No paid AI API is called by any workflow.
 
 ## 2. Goals
 
@@ -42,17 +44,19 @@ GitHub (3 repos) --push webhook--> n8n
                                      |
                          normalize (frontmatter, strip MDX)
                                      |
-                         LLM extraction against taxonomy
+                         validate frontmatter tags against taxonomy
                                      |
                          quality gate --fail--> GitHub Issue (review queue)
                                      |
-                         chunk + embed --> Qdrant
+                         chunk + embed (local Ollama) --> Qdrant
                                      |
                          MCP Server Trigger: search_evidence, get_document
                                      |
                          Claude Code / Claude Desktop / other agents
 
-all-maker.com merge to main --> LLM drafts LinkedIn post --> Telegram approval --> LinkedIn
+all-maker.com merge to main --> LinkedIn draft from post frontmatter --> Telegram approval --> LinkedIn
+
+Claude Code (IDE, subscription) --> writes content + tags + LinkedIn draft --> fixes review-queue Issues
 ```
 
 Hosting: one Hetzner Cloud VPS, Ubuntu 24.04 LTS, Docker Compose running n8n, Qdrant, Caddy (auto HTTPS). Public hostname: `n8n.all-maker.com`. Qdrant never exposed publicly.
@@ -92,6 +96,7 @@ all-maker-context/
 
 ## 7. Rules for Claude Code
 
+- No paid AI APIs (OpenAI, Anthropic API, others) in workflows. AI work (tagging, drafting, fixing review-queue Issues) happens in the IDE with Claude Code under the owner's subscription. Embeddings run locally in Ollama.
 - Never commit secrets. `.env` is gitignored; only `.env.example` with variable names.
 - Never commit `CLAUDE.local.md` or copy its content into tracked files.
 - Workflows are edited in the n8n UI, exported, and committed to `workflows/`. Check exports for embedded secrets before committing.
@@ -120,7 +125,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 ### Phase 1: Accounts
 
 1. [DONE] [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
-2. [OWNER] LLM API: Anthropic Console (https://console.anthropic.com), add billing, set a monthly spend limit, create an API key. Used for extraction and drafting. Separate from the claude.ai subscription. No OpenAI: embeddings run locally in Ollama (`nomic-embed-text`).
+2. [DROPPED] LLM API account. Not needed: tagging and drafting happen in Claude Code; embeddings run locally in Ollama (`nomic-embed-text`).
 3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
 4. [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
 5. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
@@ -157,15 +162,17 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `skills`: closed list derived from the inventory
    - `audience`: hiring_manager | engineer | writer | general
    - `last_reviewed`: date; `freshness_days`: per content_type
-3. [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type.
-4. [OWNER] Review and approve before Phase 5.
+   Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `linkedin` draft field for blog posts.
+3. [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
+4. [OWNER] Review and approve before tagging.
+5. [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
 
 ### Phase 5: Workflows
 
 Build in the n8n UI with Claude Code giving node-by-node instructions; export each to `workflows/` when working.
 
-1. Credentials in n8n: GitHub (PAT), Anthropic, Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
-2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Information Extractor (Anthropic Chat Model) bound to `taxonomy/schema.yaml` > Code node (validate against vocabulary).
+1. Credentials in n8n: GitHub (PAT), Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
+2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Code node (validate frontmatter tags against `taxonomy/schema.yaml`). No LLM node.
 3. `quality-gate`: checks missing required fields, values outside vocabulary, duplicate content hash, `last_reviewed` older than `freshness_days`. Failures open or update a GitHub Issue in all-maker-context labeled `review-queue`, one per document.
 4. Store: Default Data Loader + Recursive Character Text Splitter > Embeddings Ollama (`nomic-embed-text`, 768 dimensions) > Qdrant Vector Store (collection `all_maker_context`), taxonomy fields as payload. Upsert by document path so edits replace old chunks.
 5. `mcp-server`: MCP Server Trigger with bearer auth. Tools: `search_evidence(query, filters)` (Qdrant retrieval with payload filters), `get_document(path)`. Test from Claude Code or Claude Desktop (claude.ai web connectors have known issues with self-hosted n8n MCP endpoints).
@@ -173,7 +180,7 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ### Phase 6: Cross-posting
 
-1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > Claude (Anthropic Chat Model) drafts a LinkedIn post (short declaratives, link to post, no emojis, no hashtag spam) > Telegram "send and wait for approval" > on approve, LinkedIn node posts; on reject, log and stop.
+1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > read the `linkedin` draft from frontmatter (written in Claude Code with the post: short declaratives, link to post, no emojis, no hashtag spam) > Telegram "send and wait for approval" > on approve, LinkedIn node posts; on reject, log and stop. Missing draft: open a `review-queue` Issue instead.
 2. Requires the LinkedIn app from Phase 1 step 5.
 
 ### Phase 7: Documentation
