@@ -221,7 +221,7 @@ fields:
 rules:
   - id: crafting-tags
     when: {domain_contains: crafting}
-    require: "tags contains crafting and exactly one of metalworking, leatherworking, cooking"
+    require: "tags contains crafting and at least one of metalworking, leatherworking, cooking"
   - id: crafting-only-in-crafting
     when: {tags_contains_any: [crafting, metalworking, leatherworking, cooking]}
     require: "domain contains crafting"

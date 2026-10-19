@@ -41,7 +41,7 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 | `last_reviewed` | when the type has a freshness limit | `YYYY-MM-DD` | Date a person last confirmed the content is accurate. |
 | `skills` | no | up to 8 | Practices the content demonstrates. |
 | `tools` | no | up to 12 | Tools the content uses or discusses. |
-| `tags` | crafting only | `crafting` + one of `metalworking`, `leatherworking`, `cooking` | |
+| `tags` | crafting only | `crafting` + `metalworking`, `leatherworking`, or `cooking` | One craft per page. Overview pages list every craft they cover. |
 | `canonical` | for restatements | `<source>:<path>` | Points to the authoritative copy. |
 | `social` | no, blog posts only | `linkedin`, `bluesky`, `mastodon` | Cross-post drafts. |
 
