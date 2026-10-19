@@ -1,0 +1,231 @@
+# Taxonomy for all-maker-context.
+# n8n validates every ingested document against this file. It does not generate tags.
+# Change process: taxonomy/contributor-guide.md, section "Propose a new value".
+
+version: 1
+
+# All taxonomy fields live under this frontmatter key, so they never collide with
+# Docusaurus or Mintlify fields (title, tags, slug, sidebar_position, ...).
+namespace: context
+
+# ---------------------------------------------------------------------------
+# Sources: what is ingested and what is never ingested.
+# Exclusions win over inclusions.
+# ---------------------------------------------------------------------------
+sources:
+  all-maker-blog:
+    repo: strahinjamilosevic/all-maker
+    branch: master
+    include:
+      - "blog/**/*.md"
+      - "blog/**/*.mdx"
+      - "docs/**/*.md"
+      - "docs/**/*.mdx"
+    exclude:
+      - "README.md"
+      - ".claude/**"
+
+  portfolio:
+    repo: strahinjamilosevic/strahinjamilosevic
+    branch: main
+    include:
+      - "**/*.mdx"
+    exclude:
+      - "snippets/**"
+      - "AGENTS.md"
+      - "README.md"
+
+  careers:
+    repo: strahinjamilosevic/career
+    branch: main
+    include:
+      - "profile/facts.yaml"
+      - "profile/achievements/*.md"
+      - "linkedin/*.md"
+    exclude:
+      - "profile/application_answers.yaml"  # salary, date of birth, diversity answers
+      - "jobs/**"                            # digests and tracker: noise, not evidence
+      - "filters.yaml"                       # job search config
+      - "resume/**"                          # layout config
+      - ".claude/**"
+      - "scripts/**"
+      - "CLAUDE.md"
+      - "README.md"
+
+# Files that cannot carry frontmatter get their fields from here.
+path_defaults:
+  - source: careers
+    path: "profile/facts.yaml"
+    fields:
+      content_type: profile_data
+      domain: [career]
+      audience: [hiring_manager, general]
+      status: published
+
+# Never ingest a file containing these patterns, wherever it lives.
+# Matching files are skipped and reported as a review-queue Issue.
+secret_patterns:
+  - "(?i)password\\s*[:=]"
+  - "(?i)api[_-]?key\\s*[:=]"
+  - "(?i)secret\\s*[:=]"
+  - "(?i)bearer\\s+[a-z0-9._-]{20,}"
+  - "ghp_[A-Za-z0-9]{36}"
+  - "github_pat_[A-Za-z0-9_]{20,}"
+  - "sk-[A-Za-z0-9]{20,}"
+
+# ---------------------------------------------------------------------------
+# Fields
+# ---------------------------------------------------------------------------
+fields:
+  content_type:
+    required: true
+    type: enum
+    values: [blog_post, guide, craft_log, case_study, profile_page, achievement, profile_data, social_profile]
+
+  domain:
+    required: true
+    type: list
+    min: 1
+    max: 3
+    values:
+      - technical_writing
+      - api_docs
+      - docs_platform
+      - docs_strategy
+      - information_architecture
+      - content_governance
+      - ai_tooling
+      - leadership
+      - career
+      - lifestyle
+      - crafting
+
+  tags:
+    required: false
+    type: list
+    values: [crafting, metalworking, leatherworking, cooking]
+
+  audience:
+    required: true
+    type: list
+    min: 1
+    values: [hiring_manager, engineer, technical_writer, general]
+
+  employer:
+    required_for: [case_study, achievement]
+    type: enum
+    values: [bitvavo, adyen, proglove, efront, ncr, none]
+    labels:
+      efront: "eFront (BlackRock)"
+
+  skills:
+    required: false
+    type: list
+    max: 8
+    values:
+      - technical_writing
+      - api_documentation
+      - developer_documentation
+      - developer_experience
+      - docs_as_code
+      - docs_as_product
+      - content_strategy
+      - content_governance
+      - information_architecture
+      - api_governance
+      - ux_writing
+      - structured_authoring
+      - docs_platform_setup
+      - api_reference_automation
+      - search_and_analytics
+      - style_guides
+      - mentoring
+      - hiring
+      - agentic_automation
+      - ai_augmented_workflows
+
+  tools:
+    required: false
+    type: list
+    max: 8
+    values:
+      - docusaurus
+      - mintlify
+      - redocly
+      - paligo
+      - git
+      - github
+      - github_actions
+      - gitlab
+      - markdown
+      - openapi
+      - asyncapi
+      - fix
+      - postman
+      - stoplight
+      - algolia
+      - docker
+      - kubernetes
+      - cloudflare
+      - python
+      - typescript
+      - claude
+      - claude_code
+      - mcp
+      - n8n
+      - vale
+      - ga4
+      - llms_txt
+
+  status:
+    required: true
+    type: enum
+    values: [published, draft, stub]
+
+  last_reviewed:
+    required_for_freshness: true
+    type: date  # YYYY-MM-DD
+
+  # Points to the authoritative copy when this document restates another.
+  # Format: <source>:<path>, for example portfolio:projects/bitvavo-api-docs-platform.mdx
+  canonical:
+    required: false
+    type: string
+
+  # Blog posts only. Drafts for the cross-post workflow. A missing platform is skipped.
+  social:
+    required: false
+    applies_to: [blog_post]
+    type: object
+    keys:
+      linkedin: {max_length: 3000}
+      bluesky: {max_length: 300}
+      mastodon: {max_length: 500}
+
+# ---------------------------------------------------------------------------
+# Rules beyond single fields
+# ---------------------------------------------------------------------------
+rules:
+  - id: crafting-tags
+    when: {domain_contains: crafting}
+    require: "tags contains crafting and exactly one of metalworking, leatherworking, cooking"
+  - id: crafting-only-in-crafting
+    when: {tags_contains_any: [crafting, metalworking, leatherworking, cooking]}
+    require: "domain contains crafting"
+  - id: stub-not-searchable
+    when: {status: stub}
+    effect: "ingested for the review queue, excluded from search results"
+  - id: duplicate-needs-canonical
+    when: {content_hash_matches_other_document: true}
+    require: "canonical is set on one of the two documents"
+
+# Days after last_reviewed before a document is flagged as stale. null: never stale.
+freshness_days:
+  blog_post: null      # dated opinion; ages by design
+  craft_log: null      # dated project log
+  guide: 365
+  case_study: 365
+  profile_page: 180
+  achievement: 180
+  social_profile: 180
+  profile_data: 90

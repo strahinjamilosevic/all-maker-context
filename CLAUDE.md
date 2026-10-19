@@ -25,7 +25,7 @@ Tagging happens at the source. Content is tagged in frontmatter when it is writt
 
 ## 4. Source repos (read-only for n8n)
 
-Confirm exact repo names with the owner before configuring anything.
+Confirmed. Ingestion scope per repo: `taxonomy/schema.yaml`, `sources`.
 
 | Source | Content | Notes |
 |---|---|---|
@@ -33,7 +33,7 @@ Confirm exact repo names with the owner before configuring anything.
 | strahinjamilosevic.com | Mintlify portfolio: skills, education, experience, case studies, mock resume API | |
 | careers repo | Resume, education, portfolio data, case studies, application records | May contain personal data: exclude application records and contact details from ingestion |
 
-Proposed mapping (unconfirmed): `strahinjamilosevic/all-maker` (public), `strahinjamilosevic/strahinjamilosevic` (public, has `docs.json`), `strahinjamilosevic/career` (private; top level: `jobs/`, `linkedin/`, `portfolio/`, `profile/`, `resume/`, `scripts/`).
+Mapping: `strahinjamilosevic/all-maker` (public), `strahinjamilosevic/strahinjamilosevic` (public, has `docs.json`), `strahinjamilosevic/career` (private; top level: `jobs/`, `linkedin/`, `portfolio/`, `profile/`, `resume/`, `scripts/`).
 
 ## 5. Architecture
 
@@ -54,7 +54,7 @@ GitHub (3 repos) --push webhook--> n8n
                                      |
                          Claude Code / Claude Desktop / other agents
 
-all-maker.com merge to main --> social drafts from post frontmatter --> Telegram approval --> LinkedIn / Bluesky / Mastodon
+all-maker merge to master --> social drafts from post frontmatter --> Telegram approval --> LinkedIn / Bluesky / Mastodon
 
 Claude Code (IDE, subscription) --> writes content + tags + social drafts --> fixes review-queue Issues
 ```
@@ -154,8 +154,8 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 ### Phase 4: Taxonomy
 
-1. [CLAUDE] Inventory the 3 source repos: list content files, existing frontmatter fields, sections. Report before designing.
-2. [CLAUDE] Draft `taxonomy/schema.yaml` with controlled vocabularies, for example:
+1. [DONE] [CLAUDE] Inventory the 3 source repos: list content files, existing frontmatter fields, sections. Report before designing.
+2. [DONE] [CLAUDE] Draft `taxonomy/schema.yaml` with controlled vocabularies, for example:
    - `source`: all-maker-blog | portfolio | careers
    - `content_type`: blog_post | resource | case_study | resume_item | skill | project | education | api_reference
    - `employer`: bitvavo | adyen | proglove | blackrock | efront | ncr | none
@@ -164,7 +164,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `audience`: hiring_manager | engineer | writer | general
    - `last_reviewed`: date; `freshness_days`: per content_type
    Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `social` field with per-platform drafts for blog posts.
-3. [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
+3. [DONE] [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
 4. [OWNER] Review and approve before tagging.
 5. [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
 
@@ -181,7 +181,7 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ### Phase 6: Cross-posting
 
-1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > read `social` drafts from frontmatter > Telegram "send and wait" with one approve/reject choice per platform and a prefilled Hacker News submit link (`https://news.ycombinator.com/submitlink?u=<url>&t=<title>`) > post to each approved platform. No drafts: open a `review-queue` Issue instead. One platform failing does not block the others; failures open a `review-queue` Issue.
+1. `cross-post`: GitHub Trigger on push to master in all-maker (default branch is master), filter to new files under `blog/` > fetch post > read `social` drafts from frontmatter > Telegram "send and wait" with one approve/reject choice per platform and a prefilled Hacker News submit link (`https://news.ycombinator.com/submitlink?u=<url>&t=<title>`) > post to each approved platform. No drafts: open a `review-queue` Issue instead. One platform failing does not block the others; failures open a `review-queue` Issue.
 2. Drafts are written in Claude Code with the post (short declaratives, link to post, no emojis, no hashtag spam). A platform left out of `social` is skipped:
    ```yaml
    social:
@@ -199,5 +199,6 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ## 9. Open items
 
-- Exact names of the 3 source repos. Proposed mapping in section 4.
-- Paths in the careers repo to exclude from ingestion (personal data, application records). Candidates: `jobs/`, `profile/`, `linkedin/`, `.claude/`, `scripts/`.
+- Confirm Docusaurus and Mintlify builds accept the `context:` frontmatter key (test during Phase 4 step 5).
+
+Resolved 2026-10-19: source repos confirmed (`all-maker`, `strahinjamilosevic`, `career`). Ingestion scope and exclusions are defined in `taxonomy/schema.yaml` under `sources`. Only credentials are treated as sensitive; `profile/application_answers.yaml` is excluded at the owner's request.
