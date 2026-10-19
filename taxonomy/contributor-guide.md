@@ -40,7 +40,7 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 | `employer` | for `case_study`, `achievement` | `bitvavo`, `adyen`, `proglove`, `blackrock`, `ncr`, `none` | `blackrock` covers eFront, acquired by BlackRock. |
 | `last_reviewed` | when the type has a freshness limit | `YYYY-MM-DD` | Date a person last confirmed the content is accurate. |
 | `skills` | no | up to 8 | Practices the content demonstrates. |
-| `tools` | no | up to 8 | Tools the content uses or discusses. |
+| `tools` | no | up to 12 | Tools the content uses or discusses. |
 | `tags` | crafting only | `crafting` + one of `metalworking`, `leatherworking`, `cooking` | |
 | `canonical` | for restatements | `<source>:<path>` | Points to the authoritative copy. |
 | `social` | no, blog posts only | `linkedin`, `bluesky`, `mastodon` | Cross-post drafts. |

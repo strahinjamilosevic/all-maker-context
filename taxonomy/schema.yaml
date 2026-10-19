@@ -2,7 +2,7 @@
 # n8n validates every ingested document against this file. It does not generate tags.
 # Change process: taxonomy/contributor-guide.md, section "Propose a new value".
 
-version: 1
+version: 2
 
 # All taxonomy fields live under this frontmatter key, so they never collide with
 # Docusaurus or Mintlify fields (title, tags, slug, sidebar_position, ...).
@@ -143,11 +143,13 @@ fields:
       - hiring
       - agentic_automation
       - ai_augmented_workflows
+      - product_management
+      - project_management
 
   tools:
     required: false
     type: list
-    max: 8
+    max: 12
     values:
       - docusaurus
       - mintlify
@@ -176,6 +178,17 @@ fields:
       - vale
       - ga4
       - llms_txt
+      - java
+      - xml
+      - cursor
+      - intellij
+      - vscode
+      - jenkins
+      - travis_ci
+      - terraform
+      - api_explorer    # Adyen in-house API reference tool
+      - cms             # in-house content management system
+      - linters         # in-house linters
 
   status:
     required: true
