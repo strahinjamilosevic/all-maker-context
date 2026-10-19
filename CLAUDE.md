@@ -165,7 +165,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `last_reviewed`: date; `freshness_days`: per content_type
    Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `social` field with per-platform drafts for blog posts.
 3. [DONE] [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
-4. [OWNER] Review and approve before tagging.
+4. [DONE] [OWNER] Review and approve before tagging.
 5. [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
 
 ### Phase 5: Workflows
