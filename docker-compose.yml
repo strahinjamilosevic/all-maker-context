@@ -36,8 +36,21 @@ services:
     networks:
       - web
       - backend
+      - models
     depends_on:
       - qdrant
+      - ollama
+
+  # Local embedding model. No API account needed. Model is pulled once, see docs/runbook.md.
+  ollama:
+    image: ollama/ollama:0.40.6
+    restart: unless-stopped
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - models
 
   qdrant:
     image: qdrant/qdrant:v1.19.2
@@ -55,6 +68,8 @@ networks:
   # Internal: no published ports, no internet access. Only n8n can reach Qdrant.
   backend:
     internal: true
+  # Ollama needs internet to download models. No published ports; only n8n can reach it.
+  models:
 
 # Fixed names so scripts/backup.sh can address volumes directly.
 volumes:
@@ -66,3 +81,6 @@ volumes:
     name: caddy_data
   caddy_config:
     name: caddy_config
+  # Not backed up: models can be pulled again.
+  ollama_models:
+    name: ollama_models

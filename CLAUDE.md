@@ -120,7 +120,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 ### Phase 1: Accounts
 
 1. [DONE] [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
-2. [OWNER] LLM API: OpenAI platform account (https://platform.openai.com), add billing, set a monthly spend limit, create an API key. Used for both extraction and embeddings.
+2. [OWNER] LLM API: Anthropic Console (https://console.anthropic.com), add billing, set a monthly spend limit, create an API key. Used for extraction and drafting. Separate from the claude.ai subscription. No OpenAI: embeddings run locally in Ollama (`nomic-embed-text`).
 3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
 4. [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
 5. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
@@ -138,10 +138,11 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `n8n`: official image `docker.n8n.io/n8nio/n8n`, pinned version; volume `n8n_data`; env from `.env`: `N8N_HOST=n8n.all-maker.com`, `N8N_PROTOCOL=https`, `N8N_PORT=5678`, `WEBHOOK_URL=https://n8n.all-maker.com/`, `GENERIC_TIMEZONE=Europe/Amsterdam`, `TZ=Europe/Amsterdam`, `N8N_ENCRYPTION_KEY`, `N8N_SECURE_COOKIE=true`, `N8N_RUNNERS_ENABLED=true`. SQLite is sufficient at this scale; note Postgres as a later option in an ADR.
    - `qdrant`: `qdrant/qdrant`, pinned; volume `qdrant_data`; `QDRANT__SERVICE__API_KEY` from `.env`; no published ports, internal network only.
    - `caddy`: `caddy:2`, ports 80/443, volumes for `Caddyfile`, `caddy_data`, `caddy_config`.
+   - `ollama`: `ollama/ollama`, pinned; volume `ollama_models`; no published ports; serves the embedding model to n8n.
 2. [DONE] [CLAUDE] Write `Caddyfile`: `n8n.all-maker.com { reverse_proxy n8n:5678 }`.
 3. [DONE] [CLAUDE] Write `.env.example` and `.gitignore`.
 4. [OWNER] On the server: `git clone https://github.com/strahinjamilosevic/all-maker-context.git`, `cd all-maker-context`, `cp .env.example .env`, fill values. Generate secrets with `openssl rand -hex 32`. Back up `N8N_ENCRYPTION_KEY` in a password manager: losing it makes stored credentials unreadable.
-5. [OWNER] `docker compose up -d`, then `docker compose ps` (all running) and `docker compose logs caddy` (certificate obtained).
+5. [OWNER] `docker compose up -d`, then `docker compose ps` (all running) and `docker compose logs caddy` (certificate obtained). Pull the embedding model: `docker compose exec ollama ollama pull nomic-embed-text`.
 6. [OWNER] Open https://n8n.all-maker.com, create the owner account. Optional: register for the free Community Edition license key in Settings.
 7. [DONE] [CLAUDE] Write `scripts/backup.sh` (stop-free volume tar of `n8n_data` and `qdrant_data`, keep 7 days) and a cron line; document restore in `docs/runbook.md`.
 
@@ -163,16 +164,16 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 Build in the n8n UI with Claude Code giving node-by-node instructions; export each to `workflows/` when working.
 
-1. Credentials in n8n: GitHub (PAT), OpenAI, Qdrant (URL `http://qdrant:6333` + API key), Telegram.
-2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Information Extractor (OpenAI) bound to `taxonomy/schema.yaml` > Code node (validate against vocabulary).
+1. Credentials in n8n: GitHub (PAT), Anthropic, Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
+2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Information Extractor (Anthropic Chat Model) bound to `taxonomy/schema.yaml` > Code node (validate against vocabulary).
 3. `quality-gate`: checks missing required fields, values outside vocabulary, duplicate content hash, `last_reviewed` older than `freshness_days`. Failures open or update a GitHub Issue in all-maker-context labeled `review-queue`, one per document.
-4. Store: Default Data Loader + Recursive Character Text Splitter > OpenAI embeddings > Qdrant Vector Store (collection `all_maker_context`), taxonomy fields as payload. Upsert by document path so edits replace old chunks.
+4. Store: Default Data Loader + Recursive Character Text Splitter > Embeddings Ollama (`nomic-embed-text`, 768 dimensions) > Qdrant Vector Store (collection `all_maker_context`), taxonomy fields as payload. Upsert by document path so edits replace old chunks.
 5. `mcp-server`: MCP Server Trigger with bearer auth. Tools: `search_evidence(query, filters)` (Qdrant retrieval with payload filters), `get_document(path)`. Test from Claude Code or Claude Desktop (claude.ai web connectors have known issues with self-hosted n8n MCP endpoints).
 6. Activate workflows. Test: push a frontmatter change to a source repo, confirm the Qdrant upsert and/or Issue.
 
 ### Phase 6: Cross-posting
 
-1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > OpenAI drafts a LinkedIn post (short declaratives, link to post, no emojis, no hashtag spam) > Telegram "send and wait for approval" > on approve, LinkedIn node posts; on reject, log and stop.
+1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > Claude (Anthropic Chat Model) drafts a LinkedIn post (short declaratives, link to post, no emojis, no hashtag spam) > Telegram "send and wait for approval" > on approve, LinkedIn node posts; on reject, log and stop.
 2. Requires the LinkedIn app from Phase 1 step 5.
 
 ### Phase 7: Documentation

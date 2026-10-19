@@ -9,14 +9,28 @@ All commands run on the server as `deploy`, in `~/all-maker-context`, unless sta
 | n8n | `docker.n8n.io/n8nio/n8n:2.43.8` | 2026-10-19 |
 | Qdrant | `qdrant/qdrant:v1.19.2` | 2026-10-19 |
 | Caddy | `caddy:2.11.7` | 2026-10-19 |
+| Ollama | `ollama/ollama:0.40.6` | 2026-10-19 |
+| Embedding model | `nomic-embed-text` (768 dimensions) | 2026-10-19 |
 | Backup helper | `alpine:3.22` | 2026-10-19 |
+
+## AI models
+
+Claude (Anthropic API) tags documents and drafts LinkedIn posts. Ollama runs the embedding model on this server; no external account.
+
+Pull the embedding model once after the first `docker compose up -d`:
+
+1. `docker compose exec ollama ollama pull nomic-embed-text`
+2. Expect download progress, then `success`.
+3. Verify: `docker compose exec ollama ollama list` shows `nomic-embed-text:latest`.
+
+The model lives in the `ollama_models` volume and survives restarts. Changing the embedding model requires re-indexing Qdrant: vectors from different models are not comparable.
 
 ## Credentials and expiry
 
 | Item | Where stored | Expires |
 |---|---|---|
 | GitHub fine-grained PAT | n8n credential | YYYY-MM-DD (fill in) |
-| OpenAI API key | n8n credential | none |
+| Anthropic API key | n8n credential | none |
 | Telegram bot token | n8n credential | none |
 | `N8N_ENCRYPTION_KEY` | `.env` + password manager | never rotate without a migration plan |
 | `QDRANT_API_KEY` | `.env` + n8n credential | none |
