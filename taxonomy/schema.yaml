@@ -2,7 +2,7 @@
 # n8n validates every ingested document against this file. It does not generate tags.
 # Change process: taxonomy/contributor-guide.md, section "Propose a new value".
 
-version: 2
+version: 3
 
 # All taxonomy fields live under this frontmatter key, so they never collide with
 # Docusaurus or Mintlify fields (title, tags, slug, sidebar_position, ...).
@@ -59,7 +59,6 @@ path_defaults:
     fields:
       content_type: profile_data
       domain: [career]
-      audience: [hiring_manager, general]
       status: published
 
 # Never ingest a file containing these patterns, wherever it lives.
@@ -105,12 +104,6 @@ fields:
     type: list
     values: [crafting, metalworking, leatherworking, cooking]
 
-  audience:
-    required: true
-    type: list
-    min: 1
-    values: [hiring_manager, engineer, technical_writer, general]
-
   employer:
     required_for: [case_study, achievement]
     type: enum
@@ -148,6 +141,7 @@ fields:
 
   tools:
     required: false
+    not_for: [blog_post]  # blog posts carry ideas, not tool inventories
     type: list
     max: 12
     values:

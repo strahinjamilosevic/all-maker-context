@@ -20,7 +20,6 @@ tags: [opinion, technical writing]    # Docusaurus tags: site navigation, unchan
 context:                              # taxonomy: governance and agent search
   content_type: blog_post
   domain: [technical_writing, docs_strategy]
-  audience: [technical_writer, hiring_manager]
   status: published
 ---
 ```
@@ -35,12 +34,11 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 |---|---|---|---|
 | `content_type` | yes | see below | One per document. |
 | `domain` | yes | 1 to 3 from the list | What the content is about. |
-| `audience` | yes | 1 or more | Who it is written for. |
 | `status` | yes | `published`, `draft`, `stub` | Stubs reach the review queue but not search. |
 | `employer` | for `case_study`, `achievement` | `bitvavo`, `adyen`, `proglove`, `blackrock`, `ncr`, `none` | `blackrock` covers eFront, acquired by BlackRock. |
 | `last_reviewed` | when the type has a freshness limit | `YYYY-MM-DD` | Date a person last confirmed the content is accurate. |
 | `skills` | no | up to 8 | Practices the content demonstrates. |
-| `tools` | no | up to 12 | Tools the content uses or discusses. |
+| `tools` | no, not on blog posts | up to 12 | Tools the content uses or discusses. Blog posts carry ideas, not tool inventories. |
 | `tags` | crafting only | `crafting` + `metalworking`, `leatherworking`, or `cooking` | One craft per page. Overview pages list every craft they cover. |
 | `canonical` | for restatements | `<source>:<path>` | Points to the authoritative copy. |
 | `social` | no, blog posts only | `linkedin`, `bluesky`, `mastodon` | Cross-post drafts. |
@@ -68,7 +66,6 @@ A document past its freshness limit opens a review-queue Issue. Review it, updat
 context:
   content_type: blog_post
   domain: [technical_writing]
-  audience: [technical_writer]
   status: published
   social:
     linkedin: "Two to four short sentences. What the post argues. Link: https://all-maker.com/<slug>"
@@ -84,7 +81,6 @@ Social drafts: short declaratives, a link to the post, no emojis, no hashtag lis
 context:
   content_type: guide
   domain: [api_docs, content_governance]
-  audience: [technical_writer, engineer]
   status: published
   last_reviewed: 2026-10-19
   skills: [api_governance]
@@ -97,7 +93,6 @@ context:
   content_type: craft_log
   domain: [crafting]
   tags: [crafting, metalworking]
-  audience: [general]
   status: published
 ```
 
@@ -107,7 +102,6 @@ context:
 context:
   content_type: case_study
   domain: [api_docs, docs_platform]
-  audience: [hiring_manager]
   employer: bitvavo
   status: published
   last_reviewed: 2026-10-19
@@ -121,7 +115,6 @@ context:
 context:
   content_type: achievement
   domain: [career]
-  audience: [hiring_manager]
   employer: adyen
   status: published
   last_reviewed: 2026-10-19
@@ -136,7 +129,6 @@ Use `canonical` when the achievement restates a published case study. Leave it o
 context:
   content_type: profile_page   # or social_profile
   domain: [career]
-  audience: [hiring_manager]
   status: published
   last_reviewed: 2026-10-19
 ```

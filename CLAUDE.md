@@ -161,7 +161,6 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `employer`: bitvavo | adyen | proglove | blackrock | ncr | none (eFront is recorded as blackrock)
    - `domain`: api_docs | docs_platform | information_architecture | leadership | hiring | ai_tooling | crafting
    - `skills`: closed list derived from the inventory
-   - `audience`: hiring_manager | engineer | writer | general
    - `last_reviewed`: date; `freshness_days`: per content_type
    Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `social` field with per-platform drafts for blog posts.
 3. [DONE] [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
