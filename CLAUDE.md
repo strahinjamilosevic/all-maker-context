@@ -112,7 +112,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 3. [DONE] [OWNER] Configure Git identity:
    `git config --global user.name "Strahinja Milosevic"`
    `git config --global user.email "<your GitHub email>"`
-4. [OWNER] Create an SSH key for the server: `ssh-keygen -t ed25519 -C "all-maker-context"`. Accept the default path, set a passphrase. Public key is at `$HOME\.ssh\id_ed25519.pub`. Show it: `Get-Content $HOME\.ssh\id_ed25519.pub`.
+4. [DONE] [OWNER] Create an SSH key for the server: `ssh-keygen -t ed25519 -C "all-maker-context"`. Accept the default path, set a passphrase. Public key is at `$HOME\.ssh\id_ed25519.pub`. Show it: `Get-Content $HOME\.ssh\id_ed25519.pub`.
 5. [OWNER] Optional: VS Code extension "Remote - SSH" (Microsoft) to edit server files from VS Code.
 6. [OWNER] Create the GitHub repo. Local folder `C:\Repositories\all-maker-context` already exists with initial files; publish it with `gh repo create all-maker-context --public --source . --push` after the first commit.
 7. Not needed locally: Docker, Terraform, Kubernetes, Node.js.
