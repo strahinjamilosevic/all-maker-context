@@ -147,9 +147,9 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `ollama`: `ollama/ollama`, pinned; volume `ollama_models`; no published ports; serves the embedding model to n8n.
 2. [DONE] [CLAUDE] Write `Caddyfile`: `n8n.all-maker.com { reverse_proxy n8n:5678 }`.
 3. [DONE] [CLAUDE] Write `.env.example` and `.gitignore`.
-4. [OWNER] On the server: `git clone https://github.com/strahinjamilosevic/all-maker-context.git`, `cd all-maker-context`, `cp .env.example .env`, fill values. Generate secrets with `openssl rand -hex 32`. Back up `N8N_ENCRYPTION_KEY` in a password manager: losing it makes stored credentials unreadable.
-5. [OWNER] `docker compose up -d`, then `docker compose ps` (all running) and `docker compose logs caddy` (certificate obtained). Pull the embedding model: `docker compose exec ollama ollama pull nomic-embed-text`.
-6. [OWNER] Open https://n8n.all-maker.com, create the owner account. Optional: register for the free Community Edition license key in Settings.
+4. [DONE] [OWNER] On the server: `git clone https://github.com/strahinjamilosevic/all-maker-context.git`, `cd all-maker-context`, `cp .env.example .env`, fill values. Generate secrets with `openssl rand -hex 32`. Back up `N8N_ENCRYPTION_KEY` in a password manager: losing it makes stored credentials unreadable.
+5. [DONE] [OWNER] `docker compose up -d`, then `docker compose ps` (all running) and `docker compose logs caddy` (certificate obtained). Pull the embedding model: `docker compose exec ollama ollama pull nomic-embed-text`.
+6. [DONE] [OWNER] Open https://n8n.all-maker.com, create the owner account. Optional: register for the free Community Edition license key in Settings.
 7. [DONE] [CLAUDE] Write `scripts/backup.sh` (stop-free volume tar of `n8n_data` and `qdrant_data`, keep 7 days) and a cron line; document restore in `docs/runbook.md`.
 
 ### Phase 4: Taxonomy
