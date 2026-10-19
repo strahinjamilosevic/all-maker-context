@@ -114,9 +114,9 @@ fields:
   employer:
     required_for: [case_study, achievement]
     type: enum
-    values: [bitvavo, adyen, proglove, efront, ncr, none]
+    values: [bitvavo, adyen, proglove, blackrock, ncr, none]
     labels:
-      efront: "eFront (BlackRock)"
+      blackrock: "BlackRock (eFront)"
 
   skills:
     required: false

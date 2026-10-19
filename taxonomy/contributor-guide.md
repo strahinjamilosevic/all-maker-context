@@ -37,7 +37,7 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 | `domain` | yes | 1 to 3 from the list | What the content is about. |
 | `audience` | yes | 1 or more | Who it is written for. |
 | `status` | yes | `published`, `draft`, `stub` | Stubs reach the review queue but not search. |
-| `employer` | for `case_study`, `achievement` | `bitvavo`, `adyen`, `proglove`, `efront`, `ncr`, `none` | `efront` covers eFront and BlackRock. |
+| `employer` | for `case_study`, `achievement` | `bitvavo`, `adyen`, `proglove`, `blackrock`, `ncr`, `none` | `blackrock` covers eFront, acquired by BlackRock. |
 | `last_reviewed` | when the type has a freshness limit | `YYYY-MM-DD` | Date a person last confirmed the content is accurate. |
 | `skills` | no | up to 8 | Practices the content demonstrates. |
 | `tools` | no | up to 8 | Tools the content uses or discusses. |

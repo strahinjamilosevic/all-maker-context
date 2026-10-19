@@ -158,7 +158,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 2. [DONE] [CLAUDE] Draft `taxonomy/schema.yaml` with controlled vocabularies, for example:
    - `source`: all-maker-blog | portfolio | careers
    - `content_type`: blog_post | resource | case_study | resume_item | skill | project | education | api_reference
-   - `employer`: bitvavo | adyen | proglove | blackrock | efront | ncr | none
+   - `employer`: bitvavo | adyen | proglove | blackrock | ncr | none (eFront is recorded as blackrock)
    - `domain`: api_docs | docs_platform | information_architecture | leadership | hiring | ai_tooling | crafting
    - `skills`: closed list derived from the inventory
    - `audience`: hiring_manager | engineer | writer | general
