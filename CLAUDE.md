@@ -119,7 +119,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 ### Phase 1: Accounts
 
-1. [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
+1. [DONE] [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
 2. [OWNER] LLM API: OpenAI platform account (https://platform.openai.com), add billing, set a monthly spend limit, create an API key. Used for both extraction and embeddings.
 3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
 4. [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
