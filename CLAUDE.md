@@ -59,7 +59,7 @@ all-maker.com merge to main --> social drafts from post frontmatter --> Telegram
 Claude Code (IDE, subscription) --> writes content + tags + social drafts --> fixes review-queue Issues
 ```
 
-Hosting: one Hetzner Cloud VPS, Ubuntu 24.04 LTS, Docker Compose running n8n, Qdrant, Caddy (auto HTTPS). Public hostname: `n8n.all-maker.com`. Qdrant never exposed publicly.
+Hosting: one Hetzner Cloud VPS, Ubuntu 26.04 LTS, Docker Compose running n8n, Qdrant, Caddy (auto HTTPS). Public hostname: `n8n.all-maker.com`. Qdrant never exposed publicly.
 
 ## 6. Repo layout
 
@@ -133,7 +133,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 ### Phase 2: Server
 
-1. [OWNER] Hetzner: create server. Location: Falkenstein or Nuremberg. Image: Ubuntu 24.04. Type: smallest shared x86 with at least 4 GB RAM. SSH key: the one from Phase 1. Enable backups. Create a firewall allowing inbound TCP 22, 80, 443 only; attach it.
+1. [OWNER] Hetzner: create server. Location: Falkenstein or Nuremberg. Image: Ubuntu 26.04. Type: smallest shared x86 with at least 4 GB RAM. SSH key: the one from Phase 1. Enable backups. Create a firewall allowing inbound TCP 22, 80, 443 only; attach it.
 2. [OWNER] Namecheap > all-maker.com > Advanced DNS: add A record, host `n8n`, value = server IPv4, TTL automatic. Verify after a few minutes: `Resolve-DnsName n8n.all-maker.com`.
 3. [DONE] [CLAUDE] Write `scripts/server-setup.sh`: create non-root sudo user `deploy` with the same authorized key, disable root SSH login and password auth, enable `ufw` (22, 80, 443), enable `unattended-upgrades`, install Docker Engine and Compose plugin from Docker's official apt repository, add `deploy` to the `docker` group.
 4. [OWNER] Run it: `ssh root@<server-ip>`, copy the script over (`scp scripts/server-setup.sh root@<server-ip>:/root/`), run `bash /root/server-setup.sh`. Reconnect as `ssh deploy@<server-ip>`. Verify: `docker run hello-world`.

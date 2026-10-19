@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time hardening and Docker install for a fresh Ubuntu 24.04 server.
+# One-time hardening and Docker install for a fresh Ubuntu 26.04 server.
 # Run as root: bash /root/server-setup.sh
 # Keep this root session open until you have logged in as deploy in a second window.
 set -euo pipefail
