@@ -199,6 +199,6 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ## 9. Open items
 
-- Confirm Docusaurus and Mintlify builds accept the `context:` frontmatter key (test during Phase 4 step 5).
+- None.
 
-Resolved 2026-10-19: source repos confirmed (`all-maker`, `strahinjamilosevic`, `career`). Ingestion scope and exclusions are defined in `taxonomy/schema.yaml` under `sources`. Only credentials are treated as sensitive; `profile/application_answers.yaml` is excluded at the owner's request.
+Resolved 2026-10-19: source repos confirmed (`all-maker`, `strahinjamilosevic`, `career`). Ingestion scope and exclusions are defined in `taxonomy/schema.yaml` under `sources`. Only credentials are treated as sensitive; `profile/application_answers.yaml` is excluded at the owner's request. The `context:` key passes `mint validate` (Mintlify CLI 4.2.985) and `npm run build` (Docusaurus). Docusaurus copies frontmatter into public JS bundles: `context` fields and `social` drafts are readable on all-maker.com, not rendered. Nothing sensitive goes in frontmatter.
