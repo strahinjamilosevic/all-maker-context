@@ -30,8 +30,11 @@ usermod -aG sudo "$DEPLOY_USER"
 install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "/home/$DEPLOY_USER/.ssh"
 install -m 600 -o "$DEPLOY_USER" -g "$DEPLOY_USER" /root/.ssh/authorized_keys "/home/$DEPLOY_USER/.ssh/authorized_keys"
 
-echo "==> Set a sudo password for $DEPLOY_USER"
-passwd "$DEPLOY_USER"
+# Skip on re-runs: "P" means a password is already set.
+if [[ "$(passwd -S "$DEPLOY_USER" | awk '{print $2}')" != "P" ]]; then
+  echo "==> Set a sudo password for $DEPLOY_USER"
+  passwd "$DEPLOY_USER"
+fi
 
 echo "==> Hardening SSH"
 # 00- prefix: sshd uses the first value it reads, so this wins over 50-cloud-init.conf.
@@ -41,6 +44,8 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 PubkeyAuthentication yes
 EOF
+# Ubuntu 24.10+ starts sshd on demand, so /run/sshd may not exist yet; sshd -t needs it.
+install -d -m 755 /run/sshd
 sshd -t
 systemctl restart ssh
 
