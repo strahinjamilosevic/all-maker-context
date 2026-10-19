@@ -6,7 +6,7 @@ If `CLAUDE.local.md` exists, read it too. It is gitignored and holds private con
 
 ## 1. What this is
 
-A self-hosted n8n deployment that ingests three existing GitHub repos, validates their content against a controlled taxonomy, flags quality issues, stores it in a vector database, and exposes it to AI agents through an MCP server. A second workflow cross-posts new blog posts to LinkedIn after human approval.
+A self-hosted n8n deployment that ingests three existing GitHub repos, validates their content against a controlled taxonomy, flags quality issues, stores it in a vector database, and exposes it to AI agents through an MCP server. A second workflow cross-posts new blog posts to LinkedIn, Bluesky, and Mastodon after human approval in Telegram.
 
 Tagging happens at the source. Content is tagged in frontmatter when it is written, in the IDE with Claude Code. n8n reads and validates tags; it does not generate them. Issues raised by the quality gate are fixed in the IDE the same way. No paid AI API is called by any workflow.
 
@@ -54,9 +54,9 @@ GitHub (3 repos) --push webhook--> n8n
                                      |
                          Claude Code / Claude Desktop / other agents
 
-all-maker.com merge to main --> LinkedIn draft from post frontmatter --> Telegram approval --> LinkedIn
+all-maker.com merge to main --> social drafts from post frontmatter --> Telegram approval --> LinkedIn / Bluesky / Mastodon
 
-Claude Code (IDE, subscription) --> writes content + tags + LinkedIn draft --> fixes review-queue Issues
+Claude Code (IDE, subscription) --> writes content + tags + social drafts --> fixes review-queue Issues
 ```
 
 Hosting: one Hetzner Cloud VPS, Ubuntu 24.04 LTS, Docker Compose running n8n, Qdrant, Caddy (auto HTTPS). Public hostname: `n8n.all-maker.com`. Qdrant never exposed publicly.
@@ -128,7 +128,8 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 2. [DROPPED] LLM API account. Not needed: tagging and drafting happen in Claude Code; embeddings run locally in Ollama (`nomic-embed-text`).
 3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
 4. [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
-5. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
+5. [OWNER] Later (Phase 6): Bluesky app password (Settings > Privacy and security > App passwords). Mastodon access token (instance Preferences > Development > New application, scope `write:statuses`).
+6. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
 
 ### Phase 2: Server
 
@@ -162,7 +163,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    - `skills`: closed list derived from the inventory
    - `audience`: hiring_manager | engineer | writer | general
    - `last_reviewed`: date; `freshness_days`: per content_type
-   Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `linkedin` draft field for blog posts.
+   Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `social` field with per-platform drafts for blog posts.
 3. [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
 4. [OWNER] Review and approve before tagging.
 5. [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
@@ -180,8 +181,16 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ### Phase 6: Cross-posting
 
-1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > read the `linkedin` draft from frontmatter (written in Claude Code with the post: short declaratives, link to post, no emojis, no hashtag spam) > Telegram "send and wait for approval" > on approve, LinkedIn node posts; on reject, log and stop. Missing draft: open a `review-queue` Issue instead.
-2. Requires the LinkedIn app from Phase 1 step 5.
+1. `cross-post`: GitHub Trigger on push to main in all-maker.com, filter to new files under `blog/` > fetch post > read `social` drafts from frontmatter > Telegram "send and wait" with one approve/reject choice per platform and a prefilled Hacker News submit link (`https://news.ycombinator.com/submitlink?u=<url>&t=<title>`) > post to each approved platform. No drafts: open a `review-queue` Issue instead. One platform failing does not block the others; failures open a `review-queue` Issue.
+2. Drafts are written in Claude Code with the post (short declaratives, link to post, no emojis, no hashtag spam). A platform left out of `social` is skipped:
+   ```yaml
+   social:
+     linkedin: "..."   # long form
+     bluesky: "..."    # max 300 characters
+     mastodon: "..."   # max 500 characters
+   ```
+3. Platforms: LinkedIn, Bluesky, Mastodon automated. Hacker News and Reddit manual only (no API / self-promotion rules). X skipped (paid API).
+4. Requires the tokens from Phase 1 steps 5 and 6. Bluesky and Mastodon can go live before LinkedIn.
 
 ### Phase 7: Documentation
 
