@@ -127,7 +127,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 1. [DONE] [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
 2. [DROPPED] LLM API account. Not needed: tagging and drafting happen in Claude Code; embeddings run locally in Ollama (`nomic-embed-text`).
 3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
-4. [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
+4. [DONE] [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
 5. [OWNER] Later (Phase 6): Bluesky app password (Settings > Privacy and security > App passwords). Mastodon access token (instance Preferences > Development > New application, scope `write:statuses`).
 6. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
 
@@ -165,7 +165,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
    Decide how tags sit in frontmatter without breaking Docusaurus or Mintlify (for example, grouped under one `context:` key). Include a `social` field with per-platform drafts for blog posts.
 3. [DONE] [CLAUDE] Write `taxonomy/contributor-guide.md`: required fields, allowed values, how to propose a new value, templates per content_type, how to tag with Claude Code.
 4. [DONE] [OWNER] Review and approve before tagging.
-5. [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
+5. [DONE] [OWNER + CLAUDE] Tag existing content in the source repos with Claude Code, one PR per repo. Owner reviews and merges.
 
 ### Phase 5: Workflows
 
