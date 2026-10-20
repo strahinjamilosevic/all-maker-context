@@ -1,0 +1,328 @@
+{
+  "name": "mcp-server",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "bearerAuth",
+        "path": "all-maker-context"
+      },
+      "id": "8eae369e-1256-4ef9-a20a-1f3013c71ba4",
+      "name": "MCP server",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "MCP bearer token"
+        }
+      },
+      "webhookId": "34a49a47-e9ea-4f44-a997-fd37872abcc7"
+    },
+    {
+      "parameters": {
+        "description": "Search Strahinja Milošević's professional content by meaning: blog posts, guides, portfolio case studies, career achievements, and profile data. Returns the best-matching documents with title, url, taxonomy tags, and excerpts. Originals rank above copies. Filters, all optional, comma-separate to match any: employer (bitvavo, adyen, proglove, blackrock, ncr); domain (technical_writing, api_docs, docs_platform, docs_strategy, information_architecture, content_governance, ai_tooling, leadership, career, lifestyle, crafting); content_type (blog_post, guide, craft_log, case_study, profile_page, achievement, profile_data, social_profile); skill, for example api_governance, information_architecture, docs_as_code; tool_name, for example openapi, docusaurus, kubernetes.",
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "mcp-tools"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tool": "search",
+            "query": "={{ $fromAI('query', `What to find, in natural language`, 'string', '') }}",
+            "employer": "={{ $fromAI('employer', `Optional employer filter`, 'string', '') }}",
+            "domain": "={{ $fromAI('domain', `Optional domain filter`, 'string', '') }}",
+            "skill": "={{ $fromAI('skill', `Optional skill filter`, 'string', '') }}",
+            "tool_name": "={{ $fromAI('tool_name', `Optional tool filter`, 'string', '') }}",
+            "content_type": "={{ $fromAI('content_type', `Optional content type filter`, 'string', '') }}",
+            "limit": "={{ $fromAI('limit', `Number of documents, 1 to 10. Default 5`, 'number', 5) }}",
+            "doc_id": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "tool",
+              "displayName": "tool",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "employer",
+              "displayName": "employer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "skill",
+              "displayName": "skill",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "tool_name",
+              "displayName": "tool_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "content_type",
+              "displayName": "content_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "limit",
+              "displayName": "limit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "doc_id",
+              "displayName": "doc_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "6cf430c9-f51c-4798-91f4-dfb03e1dd342",
+      "name": "search_evidence",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        -120,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "description": "Return the full text and tags of one document by doc_id (format source:path, as returned by search_evidence). Use it when excerpts are not enough. Only indexed documents are available.",
+        "workflowId": {
+          "__rl": true,
+          "value": "",
+          "mode": "list",
+          "cachedResultName": "mcp-tools"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "tool": "get",
+            "query": "",
+            "employer": "",
+            "domain": "",
+            "skill": "",
+            "tool_name": "",
+            "content_type": "",
+            "limit": 1,
+            "doc_id": "={{ $fromAI('doc_id', `Document id, for example portfolio:projects/bitvavo-api-docs-platform.mdx`, 'string', '') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "tool",
+              "displayName": "tool",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "query",
+              "displayName": "query",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "employer",
+              "displayName": "employer",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "domain",
+              "displayName": "domain",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "skill",
+              "displayName": "skill",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "tool_name",
+              "displayName": "tool_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "content_type",
+              "displayName": "content_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "limit",
+              "displayName": "limit",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "doc_id",
+              "displayName": "doc_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "id": "6f86d244-9c5b-4277-b83d-b4876231d364",
+      "name": "get_document",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## MCP server\nEndpoint: `https://n8n.all-maker.com/mcp/all-maker-context`. Bearer token required. Two read-only tools; the work happens in the `mcp-tools` workflow.",
+        "width": 560,
+        "height": 180,
+        "color": 6
+      },
+      "id": "d697e61b-2946-44f7-b39f-f22e805ea396",
+      "name": "Note 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -200,
+        -200
+      ]
+    }
+  ],
+  "connections": {
+    "search_evidence": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_document": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP server",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "tags": []
+}

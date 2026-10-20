@@ -79,7 +79,8 @@ all-maker-context/
   workflows/
     ingest.json          (includes the quality gate)
     error-alert.json     (Telegram alert on any workflow failure)
-    mcp-server.json
+    mcp-server.json      (MCP Server Trigger, bearer auth, two tools)
+    mcp-tools.json       (tool logic: search_evidence, get_document)
     cross-post.json
   scripts/
     server-setup.sh
