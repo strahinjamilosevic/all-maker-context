@@ -43,6 +43,12 @@ Both tokens expire on the date above. Two weeks before:
 2. n8n > Credentials. Open the matching credential, paste the new token, save. Expect "Connection tested successfully".
 3. Update the expiry date in this table and commit.
 
+## Error alerts
+
+Workflow `error-alert` (`workflows/error-alert.json`) sends a Telegram message to @Allmaker_publish_bot's chat when a connected workflow fails: workflow, node, error, execution link. It must be published to be selectable.
+
+Connect a new workflow: open it, **Settings** > **Error Workflow** > `error-alert`, and set **Timeout Workflow** to 15 minutes. `ingest` is connected.
+
 ## Daily operations
 
 Status: `docker compose ps`. All four services (caddy, n8n, ollama, qdrant) show `Up`.

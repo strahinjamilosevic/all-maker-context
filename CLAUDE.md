@@ -78,6 +78,7 @@ all-maker-context/
     contributor-guide.md
   workflows/
     ingest.json          (includes the quality gate)
+    error-alert.json     (Telegram alert on any workflow failure)
     mcp-server.json
     cross-post.json
   scripts/
