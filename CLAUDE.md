@@ -77,8 +77,7 @@ all-maker-context/
     schema.yaml
     contributor-guide.md
   workflows/
-    ingest.json
-    quality-gate.json
+    ingest.json          (includes the quality gate)
     mcp-server.json
     cross-post.json
   scripts/
@@ -173,7 +172,7 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 1. Credentials in n8n: [DONE] GitHub sources (read), [DONE] GitHub review queue, [DONE] Telegram approvals; Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
 2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Code node (validate frontmatter tags against `taxonomy/schema.yaml`). No LLM node.
-3. `quality-gate`: checks missing required fields, values outside vocabulary, duplicate content hash, `last_reviewed` older than `freshness_days`. Failures open or update a GitHub Issue in all-maker-context labeled `review-queue`, one per document.
+3. Quality gate (a section of `ingest`, not a separate workflow, so the whole pipeline reads as one canvas): checks missing required fields, values outside vocabulary, duplicate content hash, `last_reviewed` older than `freshness_days`. Failures open or update a GitHub Issue in all-maker-context labeled `review-queue`, one per document.
 4. Store: Default Data Loader + Recursive Character Text Splitter > Embeddings Ollama (`nomic-embed-text`, 768 dimensions) > Qdrant Vector Store (collection `all_maker_context`), taxonomy fields as payload. Upsert by document path so edits replace old chunks.
 5. `mcp-server`: MCP Server Trigger with bearer auth. Tools: `search_evidence(query, filters)` (Qdrant retrieval with payload filters), `get_document(path)`. Test from Claude Code or Claude Desktop (claude.ai web connectors have known issues with self-hosted n8n MCP endpoints).
 6. Activate workflows. Test: push a frontmatter change to a source repo, confirm the Qdrant upsert and/or Issue.

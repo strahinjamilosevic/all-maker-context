@@ -1,0 +1,965 @@
+{
+  "name": "ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "owner": {
+          "__rl": true,
+          "value": "strahinjamilosevic",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "all-maker",
+          "mode": "name"
+        },
+        "events": [
+          "push"
+        ],
+        "options": {}
+      },
+      "id": "8f6b0e27-ad70-49f3-be0c-d8de485ba47d",
+      "name": "On push: all-maker",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      },
+      "webhookId": "d6cee257-dc42-43fc-a0a4-9768bac59c9c"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "owner": {
+          "__rl": true,
+          "value": "strahinjamilosevic",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "strahinjamilosevic",
+          "mode": "name"
+        },
+        "events": [
+          "push"
+        ],
+        "options": {}
+      },
+      "id": "e892abba-c8d3-4b7b-88d3-2e8e23171c5e",
+      "name": "On push: portfolio",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        180
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      },
+      "webhookId": "88986e09-5ff6-4136-afd1-4deceb11f9da"
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "owner": {
+          "__rl": true,
+          "value": "strahinjamilosevic",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "career",
+          "mode": "name"
+        },
+        "events": [
+          "push"
+        ],
+        "options": {}
+      },
+      "id": "e053a83e-0848-48b1-be8e-5f4b42a10bd6",
+      "name": "On push: career",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        360
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      },
+      "webhookId": "9ad58dce-ab0b-4319-814a-019af13f6f73"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 3,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "fb9a96bf-89a4-444a-a7cf-35faf5f0e61f",
+      "name": "Weekly full sync",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        540
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d922012a-4627-4c40-9364-3bed0b8b69fe",
+      "name": "Run full sync now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One run = one push (to one repo) or one full sync (all repos).\nconst input = $input.first().json;\nconst body = input.body;\nif (body && body.repository) {\n  const changed = new Set();\n  const removed = new Set();\n  for (const commit of body.commits || []) {\n    for (const p of [...(commit.added || []), ...(commit.modified || [])]) { changed.add(p); removed.delete(p); }\n    for (const p of commit.removed || []) { removed.add(p); changed.delete(p); }\n  }\n  return [{ json: {\n    mode: 'push',\n    repo: body.repository.name,\n    branch: (body.ref || '').replace('refs/heads/', ''),\n    changed: [...changed],\n    removed: [...removed],\n  } }];\n}\nreturn [{ json: { mode: 'full' } }];\n"
+      },
+      "id": "c654a0c5-eafb-43a3-bf81-da57eb5e7b28",
+      "name": "Plan sync",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/strahinjamilosevic/all-maker-context/contents/taxonomy/schema.yaml",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            }
+          ]
+        }
+      },
+      "id": "fdfad211-e9b2-4451-9fd5-be2fe4a47e4c",
+      "name": "Get taxonomy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        360
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub review queue"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const YAML = require('yaml');\nconst schema = YAML.parse($('Get taxonomy').first().json.data);\nconst plan = $('Plan sync').first().json;\nconst out = [];\nfor (const [source, cfg] of Object.entries(schema.sources)) {\n  const [owner, repo] = cfg.repo.split('/');\n  // Pushes to other branches or repos are ignored.\n  if (plan.mode === 'push' && (repo !== plan.repo || plan.branch !== cfg.branch)) continue;\n  out.push({ json: { source, owner, repo, branch: cfg.branch, mode: plan.mode,\n    changed: plan.changed || [], removed: plan.removed || [] } });\n}\nreturn out;\n"
+      },
+      "id": "80868040-0cf0-419b-afa2-5d7dfbc15c50",
+      "name": "Repos to scan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/git/trees/{{ $json.branch }}?recursive=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {}
+      },
+      "id": "e3771caa-7b33-4f95-8f6c-8485cae6805e",
+      "name": "Get repo tree",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        360
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const YAML = require('yaml');\nconst schema = YAML.parse($('Get taxonomy').first().json.data);\n\nconst toRe = (glob) => new RegExp('^' + glob\n  .replace(/[.+^${}()|[\\]\\\\]/g, '\\\\$&')\n  .replace(/\\*\\*\\//g, '\\u0000').replace(/\\*\\*/g, '\\u0001').replace(/\\*/g, '[^/]*')\n  .replace(/\\u0000/g, '(?:.*/)?').replace(/\\u0001/g, '.*') + '$');\nconst matches = (path, globs) => (globs || []).some((g) => toRe(g).test(path));\n\nconst out = [];\n$input.all().forEach((item, i) => {\n  const r = $('Repos to scan').itemMatching(i).json;\n  const cfg = schema.sources[r.source];\n  const inScope = (p) => matches(p, cfg.include) && !matches(p, cfg.exclude);\n  const base = { source: r.source, owner: r.owner, repo: r.repo, branch: r.branch, mode: r.mode };\n  let paths = (item.json.tree || []).filter((t) => t.type === 'blob').map((t) => t.path).filter(inScope);\n  if (r.mode === 'push') paths = paths.filter((p) => r.changed.includes(p));\n  for (const path of paths) out.push({ json: { ...base, path, removed: false } });\n  if (r.mode === 'push') {\n    for (const path of r.removed.filter(inScope)) out.push({ json: { ...base, path, removed: true } });\n  }\n});\nreturn out;\n"
+      },
+      "id": "a5f33ed0-ba8d-4b6c-93fe-c4ab3d653f6e",
+      "name": "Select files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/{{ $json.owner }}/{{ $json.repo }}/contents/{{ encodeURI($json.path) }}?ref={{ $json.branch }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            }
+          ]
+        }
+      },
+      "id": "2c593200-c2a8-4301-95f2-a3b3a1d11f68",
+      "name": "Get file",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        360
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.github.com/repos/{{ $('Select files').item.json.owner }}/{{ $('Select files').item.json.repo }}/commits?path={{ encodeURIComponent($('Select files').item.json.path) }}&sha={{ $('Select files').item.json.branch }}&per_page=1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "fbd8e2ce-fa5e-4b1b-8443-5aaaf6a13c43",
+      "name": "Get last commit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1600,
+        360
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub sources (read)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize each file and check it against taxonomy/schema.yaml.\n// A document reaches search only when it has no errors. Stale content stays searchable and is flagged.\nconst YAML = require('yaml');\nconst crypto = require('crypto');\nconst schema = YAML.parse($('Get taxonomy').first().json.data);\nconst F = schema.fields;\nconst CRAFTS = ['metalworking', 'leatherworking', 'cooking'];\nconst today = new Date();\n\nconst toRe = (glob) => new RegExp('^' + glob\n  .replace(/[.+^${}()|[\\]\\\\]/g, '\\\\$&')\n  .replace(/\\*\\*\\//g, '\\u0000').replace(/\\*\\*/g, '\\u0001').replace(/\\*/g, '[^/]*')\n  .replace(/\\u0000/g, '(?:.*/)?').replace(/\\u0001/g, '.*') + '$');\nconst matches = (path, globs) => (globs || []).some((g) => toRe(g).test(path));\n\nfunction publicUrl(f, fm) {\n  const p = f.path.replace(/\\.(mdx?|ya?ml)$/, '');\n  if (f.source === 'portfolio') return 'https://strahinjamilosevic.com/' + p.replace(/(^|\\/)index$/, '');\n  if (f.source === 'all-maker-blog') {\n    if (p.startsWith('blog/')) return fm.slug ? `https://all-maker.com/blog/${String(fm.slug).replace(/^\\//, '')}` : null;\n    if (fm.slug && String(fm.slug).startsWith('/')) return 'https://all-maker.com/docs' + fm.slug;\n    return 'https://all-maker.com/' + p.replace(/\\/index$/, '');\n  }\n  return null; // careers is private\n}\n\nfunction toText(body) {\n  return body\n    .replace(/^\\s*(import|export)\\s.*$/gm, '')\n    .replace(/<!--[\\s\\S]*?-->/g, '')\n    .replace(/\\{\\/\\*[\\s\\S]*?\\*\\/\\}/g, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, ' ')\n    .replace(/!\\[[^\\]]*\\]\\([^)]*\\)/g, '')\n    .replace(/\\[([^\\]]+)\\]\\([^)]*\\)/g, '$1')\n    .replace(/[ \\t]+\\n/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\nfunction validate(ctx, issues) {\n  const ct = ctx.content_type;\n  for (const [name, spec] of Object.entries(F)) {\n    const v = ctx[name];\n    const empty = v === undefined || v === null || (Array.isArray(v) && v.length === 0);\n    if (spec.required && empty) issues.push(`Missing required field \\`${name}\\`.`);\n    if ((spec.required_for || []).includes(ct) && empty) issues.push(`Missing \\`${name}\\`, required for ${ct}.`);\n    if (!empty && (spec.not_for || []).includes(ct)) issues.push(`\\`${name}\\` is not allowed on ${ct}.`);\n    if (!empty && spec.applies_to && !spec.applies_to.includes(ct)) issues.push(`\\`${name}\\` only applies to ${spec.applies_to.join(', ')}.`);\n    if (empty || !spec.values) continue;\n    const vals = Array.isArray(v) ? v : [v];\n    const bad = vals.filter((x) => !spec.values.includes(x));\n    if (bad.length) issues.push(`\\`${name}\\` has values outside the vocabulary: ${bad.join(', ')}. Use an existing value or propose a new one.`);\n    if (Array.isArray(v) && (v.length < (spec.min ?? 0) || v.length > (spec.max ?? Infinity))) {\n      issues.push(`\\`${name}\\` has ${v.length} values. Allowed: ${spec.min ?? 0} to ${spec.max ?? 'any'}.`);\n    }\n  }\n  for (const k of Object.keys(ctx)) if (!F[k]) issues.push(`Unknown field \\`${k}\\`.`);\n  const domain = ctx.domain || [];\n  const tags = ctx.tags || [];\n  if (domain.includes('crafting') && !(tags.includes('crafting') && tags.some((t) => CRAFTS.includes(t)))) {\n    issues.push('Crafting content needs `tags: [crafting, <craft>]`.');\n  }\n  if (tags.length && !domain.includes('crafting')) issues.push('Craft tags are only allowed in the crafting domain.');\n}\n\nconst docs = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const f = $('Select files').itemMatching(i).json;\n  const doc = {\n    doc_id: `${f.source}:${f.path}`, source: f.source, repo: `${f.owner}/${f.repo}`, path: f.path, mode: f.mode,\n    github_url: `https://github.com/${f.owner}/${f.repo}/blob/${f.branch}/${f.path}`,\n    removed: f.removed, issues: [], warnings: [], searchable: false, stale: false,\n  };\n  docs.push(doc);\n  if (f.removed) continue;\n\n  const raw = $('Get file').itemMatching(i).json.data;\n  if (typeof raw !== 'string') { doc.issues.push('The file could not be fetched from GitHub.'); continue; }\n  try { doc.updated_at = JSON.parse(items[i].json.data)[0].commit.committer.date.slice(0, 10); } catch (e) { doc.updated_at = null; }\n\n  const secret = (schema.secret_patterns || []).find((p) => new RegExp(p.replace('(?i)', ''), p.startsWith('(?i)') ? 'i' : '').test(raw));\n  if (secret) { doc.issues.push('Possible credential found. The file was not ingested. Remove the secret, rotate it, and push again.'); continue; }\n\n  const isYaml = /\\.ya?ml$/.test(f.path);\n  let fm = {};\n  let body = raw;\n  if (!isYaml) {\n    const m = raw.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---\\r?\\n?/);\n    if (m) {\n      try { fm = YAML.parse(m[1]) || {}; } catch (e) { doc.issues.push(`Frontmatter is not valid YAML: ${e.message.split('\\n')[0]}`); }\n      body = raw.slice(m[0].length);\n    }\n  }\n  let ctx = fm.context;\n  const def = (schema.path_defaults || []).find((d) => d.source === f.source && toRe(d.path).test(f.path));\n  if (!ctx && def) ctx = { ...def.fields, last_reviewed: doc.updated_at };\n  if (!ctx) { doc.issues.push('No `context:` block in the frontmatter. Tag the file, see taxonomy/contributor-guide.md.'); continue; }\n  validate(ctx, doc.issues);\n\n  const ct = ctx.content_type;\n  const limit = (schema.freshness_days || {})[ct];\n  if (limit) {\n    if (!ctx.last_reviewed) doc.issues.push(`Missing \\`last_reviewed\\`. ${ct} is reviewed every ${limit} days.`);\n    else {\n      const age = Math.floor((today - new Date(ctx.last_reviewed)) / 86400000);\n      if (age > limit) {\n        doc.stale = true;\n        doc.warnings.push(`Stale: last reviewed ${ctx.last_reviewed}, ${age} days ago. Limit for ${ct}: ${limit} days. Review the content and set \\`last_reviewed\\` to today.`);\n      }\n    }\n  }\n  if (ctx.status === 'stub') doc.warnings.push('Stub: write the content, then set `status: published`.');\n\n  doc.title = fm.title || (isYaml ? 'Profile facts' : (body.match(/^#\\s+(.+)$/m) || [])[1] || f.path);\n  doc.url = publicUrl(f, fm);\n  doc.context = ctx;\n  doc.text = [doc.title, fm.description, isYaml ? raw : toText(body)].filter(Boolean).join('\\n\\n');\n  doc.hash = crypto.createHash('sha256').update(doc.text.toLowerCase().replace(/\\s+/g, ' ')).digest('hex');\n  doc.searchable = doc.issues.length === 0 && ctx.status === 'published';\n}\n\n// Rules across documents: exact duplicates and canonical targets.\nconst byHash = {};\nfor (const d of docs) if (d.hash) (byHash[d.hash] = byHash[d.hash] || []).push(d);\nfor (const group of Object.values(byHash)) {\n  if (group.length > 1 && !group.some((d) => d.context.canonical)) {\n    for (const d of group) d.issues.push(`Duplicate content: identical to ${group.filter((x) => x !== d).map((x) => x.doc_id).join(', ')}. Set \\`canonical\\` on the copy.`);\n  }\n}\nif (docs[0] && docs[0].mode === 'full') {\n  const ids = new Set(docs.map((d) => d.doc_id));\n  for (const d of docs) {\n    const targets = [].concat((d.context || {}).canonical || []);\n    const missing = targets.filter((t) => !ids.has(t));\n    if (missing.length) d.issues.push(`\\`canonical\\` points to documents that do not exist: ${missing.join(', ')}.`);\n  }\n}\nfor (const d of docs) if (d.issues.length) d.searchable = false;\nreturn docs.map((d) => ({ json: d }));\n"
+      },
+      "id": "517eb7c4-4a87-40a7-a4e9-0329b563fa01",
+      "name": "Parse and validate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/strahinjamilosevic/all-maker-context/issues?labels=review-queue&state=open&per_page=100",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "7de064ce-bc48-45df-b363-2ae9dfa2c2ea",
+      "name": "Get open review issues",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        120
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub review queue"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// One review-queue Issue per document. Create, update, or close it to match the latest check.\nconst REPO = 'https://api.github.com/repos/strahinjamilosevic/all-maker-context';\nconst docs = $('Parse and validate').all().map((i) => i.json);\nlet open = [];\ntry { open = JSON.parse($('Get open review issues').first().json.data); } catch (e) { open = []; }\nconst byDoc = {};\nfor (const issue of open) {\n  const m = (issue.body || '').match(/<!-- doc_id: (.+?) -->/);\n  if (m) byDoc[m[1]] = issue;\n}\nconst actions = [];\nconst seen = new Set();\nfor (const d of docs) {\n  seen.add(d.doc_id);\n  const existing = byDoc[d.doc_id];\n  const findings = [...d.issues, ...d.warnings];\n  if (findings.length) {\n    const body = [\n      `<!-- doc_id: ${d.doc_id} -->`,\n      `**Document:** [\\`${d.path}\\`](${d.github_url}) in \\`${d.repo}\\``,\n      d.url ? `**Live page:** ${d.url}` : null,\n      `**In search:** ${d.searchable ? 'yes' + (d.stale ? ', marked stale' : '') : 'no, until the errors are fixed'}`,\n      '',\n      d.issues.length ? '**Errors** (block search):' : null,\n      ...d.issues.map((x) => `- [ ] ${x}`),\n      d.warnings.length ? '**Warnings:**' : null,\n      ...d.warnings.map((x) => `- [ ] ${x}`),\n      '',\n      'Fix the file in its source repo. The next sync updates or closes this Issue.',\n    ].filter((x) => x !== null).join('\\n');\n    if (!existing) {\n      actions.push({ method: 'POST', url: `${REPO}/issues`, body: { title: `Review: ${d.doc_id}`, body, labels: ['review-queue'] } });\n    } else if (existing.body !== body) {\n      actions.push({ method: 'PATCH', url: `${REPO}/issues/${existing.number}`, body: { body } });\n    }\n  } else if (existing) {\n    actions.push({ method: 'PATCH', url: `${REPO}/issues/${existing.number}`, body: { state: 'closed', state_reason: 'completed' } });\n  }\n}\n// Full sync: close Issues for documents that no longer exist.\nif (docs[0] && docs[0].mode === 'full') {\n  for (const [id, issue] of Object.entries(byDoc)) {\n    if (!seen.has(id)) actions.push({ method: 'PATCH', url: `${REPO}/issues/${issue.number}`, body: { state: 'closed', state_reason: 'not_planned' } });\n  }\n}\nreturn actions.map((a) => ({ json: a }));\n"
+      },
+      "id": "2ebdfe41-593e-4451-9a56-66b90c12a054",
+      "name": "Plan issue changes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2300,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}"
+      },
+      "id": "168b33e7-286d-4c43-935d-db0d03fc1170",
+      "name": "Apply issue changes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2520,
+        120
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "",
+          "name": "GitHub review queue"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/all_maker_context/points/delete?wait=true",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qdrantApi",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { must: [{ key: 'metadata.doc_id', match: { value: $json.doc_id } }] } }) }}"
+      },
+      "id": "4b2b8ed9-86eb-4311-a8e9-0557cd826b05",
+      "name": "Delete old chunks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        400
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "",
+          "name": "Qdrant"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d306c6dc-71c6-4d28-9800-57e289eabc60",
+              "leftValue": "={{ $('Parse and validate').item.json.searchable }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "787b677b-6983-4c8a-8352-68f9f420d64a",
+      "name": "Searchable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2300,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "all_maker_context",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "id": "d51e890d-3ecf-4e13-aec2-ad1aea3826bc",
+      "name": "Store in Qdrant",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2560,
+        380
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "",
+          "name": "Qdrant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:latest"
+      },
+      "id": "0de95e1f-780b-4a39-a297-85936cd26aaa",
+      "name": "Ollama embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        2480,
+        620
+      ],
+      "credentials": {
+        "ollamaApi": {
+          "id": "",
+          "name": "Ollama"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $('Parse and validate').item.json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "doc_id",
+                "value": "={{ $('Parse and validate').item.json.doc_id }}"
+              },
+              {
+                "name": "source",
+                "value": "={{ $('Parse and validate').item.json.source }}"
+              },
+              {
+                "name": "path",
+                "value": "={{ $('Parse and validate').item.json.path }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $('Parse and validate').item.json.title }}"
+              },
+              {
+                "name": "url",
+                "value": "={{ $('Parse and validate').item.json.url }}"
+              },
+              {
+                "name": "github_url",
+                "value": "={{ $('Parse and validate').item.json.github_url }}"
+              },
+              {
+                "name": "updated_at",
+                "value": "={{ $('Parse and validate').item.json.updated_at }}"
+              },
+              {
+                "name": "hash",
+                "value": "={{ $('Parse and validate').item.json.hash }}"
+              },
+              {
+                "name": "stale",
+                "value": "={{ $('Parse and validate').item.json.stale }}"
+              },
+              {
+                "name": "content_type",
+                "value": "={{ $('Parse and validate').item.json.context.content_type ?? null }}"
+              },
+              {
+                "name": "domain",
+                "value": "={{ $('Parse and validate').item.json.context.domain ?? null }}"
+              },
+              {
+                "name": "tags",
+                "value": "={{ $('Parse and validate').item.json.context.tags ?? null }}"
+              },
+              {
+                "name": "employer",
+                "value": "={{ $('Parse and validate').item.json.context.employer ?? null }}"
+              },
+              {
+                "name": "skills",
+                "value": "={{ $('Parse and validate').item.json.context.skills ?? null }}"
+              },
+              {
+                "name": "tools",
+                "value": "={{ $('Parse and validate').item.json.context.tools ?? null }}"
+              },
+              {
+                "name": "status",
+                "value": "={{ $('Parse and validate').item.json.context.status ?? null }}"
+              },
+              {
+                "name": "last_reviewed",
+                "value": "={{ $('Parse and validate').item.json.context.last_reviewed ?? null }}"
+              },
+              {
+                "name": "canonical",
+                "value": "={{ $('Parse and validate').item.json.context.canonical ?? null }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "c9a95632-fd55-4f6a-8169-8671747d2684",
+      "name": "Document loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        2700,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "chunkSize": 1500,
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "id": "2919924a-63d8-44fc-8815-ad4f6b289332",
+      "name": "Split into chunks",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        2780,
+        820
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Full sync only: remove chunks of documents that are gone from the source repos.\nconst docs = $('Parse and validate').all().map((i) => i.json);\nif (!docs.length || docs[0].mode !== 'full') return [];\nconst bySource = {};\nfor (const d of docs) (bySource[d.source] = bySource[d.source] || []).push(d.doc_id);\nreturn Object.entries(bySource).map(([source, ids]) => ({ json: { filter: {\n  must: [{ key: 'metadata.source', match: { value: source } }],\n  must_not: [{ key: 'metadata.doc_id', match: { any: ids } }],\n} } }));\n"
+      },
+      "id": "f623d150-eaa7-47b0-9a8a-e675fcb967fc",
+      "name": "Plan cleanup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://qdrant:6333/collections/all_maker_context/points/delete?wait=true",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "qdrantApi",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: $json.filter }) }}"
+      },
+      "id": "b0ea6030-8c7e-4788-9ad6-9014cbac13a2",
+      "name": "Delete removed docs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2300,
+        720
+      ],
+      "credentials": {
+        "qdrantApi": {
+          "id": "",
+          "name": "Qdrant"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 1. Collect\nA push to a source repo syncs the changed files. The weekly run and the manual run sync everything. Scope comes from `taxonomy/schema.yaml`.",
+        "width": 1340,
+        "height": 1000,
+        "color": 7
+      },
+      "id": "bd901077-1dbe-4456-9822-e74d43739db1",
+      "name": "Note 24",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Normalize\nFetch each file, parse frontmatter, strip MDX, validate the `context:` tags against the taxonomy.",
+        "width": 700,
+        "height": 1000,
+        "color": 5
+      },
+      "id": "c83390fe-6382-4ae9-8859-041a6b7a3954",
+      "name": "Note 25",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Quality gate\nOne GitHub Issue per document with errors or warnings, labeled `review-queue`. Fixed documents close their Issue.",
+        "width": 700,
+        "height": 470,
+        "color": 3
+      },
+      "id": "000cd6f0-4b17-4652-b0a0-bf749366e00a",
+      "name": "Note 26",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Store\nReplace the document's chunks in Qdrant. Only documents without errors are stored. Embeddings run locally in Ollama.",
+        "width": 920,
+        "height": 670,
+        "color": 4
+      },
+      "id": "dc4326dc-d743-4e93-999e-5154e8466f57",
+      "name": "Note 27",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2020,
+        330
+      ]
+    }
+  ],
+  "connections": {
+    "On push: all-maker": {
+      "main": [
+        [
+          {
+            "node": "Plan sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On push: portfolio": {
+      "main": [
+        [
+          {
+            "node": "Plan sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On push: career": {
+      "main": [
+        [
+          {
+            "node": "Plan sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly full sync": {
+      "main": [
+        [
+          {
+            "node": "Plan sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run full sync now": {
+      "main": [
+        [
+          {
+            "node": "Plan sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan sync": {
+      "main": [
+        [
+          {
+            "node": "Get taxonomy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get taxonomy": {
+      "main": [
+        [
+          {
+            "node": "Repos to scan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Repos to scan": {
+      "main": [
+        [
+          {
+            "node": "Get repo tree",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get repo tree": {
+      "main": [
+        [
+          {
+            "node": "Select files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select files": {
+      "main": [
+        [
+          {
+            "node": "Get file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get file": {
+      "main": [
+        [
+          {
+            "node": "Get last commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get last commit": {
+      "main": [
+        [
+          {
+            "node": "Parse and validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and validate": {
+      "main": [
+        [
+          {
+            "node": "Get open review issues",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Delete old chunks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Plan cleanup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get open review issues": {
+      "main": [
+        [
+          {
+            "node": "Plan issue changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan issue changes": {
+      "main": [
+        [
+          {
+            "node": "Apply issue changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete old chunks": {
+      "main": [
+        [
+          {
+            "node": "Searchable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan cleanup": {
+      "main": [
+        [
+          {
+            "node": "Delete removed docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Searchable?": {
+      "main": [
+        [
+          {
+            "node": "Store in Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Store in Qdrant",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Store in Qdrant",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split into chunks": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Document loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam"
+  },
+  "pinData": {},
+  "tags": []
+}
