@@ -26,7 +26,7 @@ context:                              # taxonomy: governance and agent search
 
 Docusaurus `tags` and `context.tags` are separate. The first builds site pages. The second is the controlled taxonomy.
 
-`profile/facts.yaml` cannot hold frontmatter. Its fields come from `path_defaults` in the schema.
+`profile/facts.yaml` cannot hold frontmatter, and `linkedin/*.md` is pasted into LinkedIn as-is. Their fields come from `path_defaults` in the schema, and their review date is their last commit date.
 
 ## Fields
 
@@ -40,7 +40,7 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 | `skills` | no | up to 8 | Practices the content demonstrates. |
 | `tools` | no, not on blog posts | up to 12 | Tools the content uses or discusses. Blog posts carry ideas, not tool inventories. |
 | `tags` | crafting only | `crafting` + `metalworking`, `leatherworking`, or `cooking` | One craft per page. Overview pages list every craft they cover. |
-| `canonical` | for restatements | `<source>:<path>` | Points to the authoritative copy. |
+| `canonical` | for restatements | `<source>:<path>`, or a list | Points to the authoritative copy, or copies. |
 | `social` | no, blog posts only | `linkedin`, `bluesky`, `mastodon` | Cross-post drafts. |
 
 ## Content types
@@ -118,10 +118,12 @@ context:
   employer: adyen
   status: published
   last_reviewed: 2026-10-19
-  canonical: portfolio:projects/adyen-terminal-api-reference.mdx
+  canonical:
+    - portfolio:projects/adyen-terminal-api-reference.mdx
+    - portfolio:projects/adyen-in-person-payments-overhaul.mdx
 ```
 
-Use `canonical` when the achievement restates a published case study. Leave it out when the achievement holds facts found nowhere else.
+Use `canonical` when the achievement restates published case studies. Search then returns the case studies first. Leave it out when the achievement holds facts found nowhere else.
 
 ### Profile page and social profile
 

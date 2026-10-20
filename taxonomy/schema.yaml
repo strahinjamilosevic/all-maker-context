@@ -2,7 +2,7 @@
 # n8n validates every ingested document against this file. It does not generate tags.
 # Change process: taxonomy/contributor-guide.md, section "Propose a new value".
 
-version: 3
+version: 4
 
 # All taxonomy fields live under this frontmatter key, so they never collide with
 # Docusaurus or Mintlify fields (title, tags, slug, sidebar_position, ...).
@@ -52,12 +52,19 @@ sources:
       - "CLAUDE.md"
       - "README.md"
 
-# Files that cannot carry frontmatter get their fields from here.
+# Files that cannot or should not carry frontmatter get their fields from here.
+# For these files, last_reviewed is the date of the file's last commit.
 path_defaults:
   - source: careers
     path: "profile/facts.yaml"
     fields:
       content_type: profile_data
+      domain: [career]
+      status: published
+  - source: careers
+    path: "linkedin/*.md"   # pasted into LinkedIn as-is, so no frontmatter
+    fields:
+      content_type: social_profile
       domain: [career]
       status: published
 
@@ -195,9 +202,10 @@ fields:
 
   # Points to the authoritative copy when this document restates another.
   # Format: <source>:<path>, for example portfolio:projects/bitvavo-api-docs-platform.mdx
+  # A list when the document restates several originals. Search returns the originals first.
   canonical:
     required: false
-    type: string
+    type: string_or_list
 
   # Blog posts only. Drafts for the cross-post workflow. A missing platform is skipped.
   social:
