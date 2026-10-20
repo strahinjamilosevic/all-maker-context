@@ -29,10 +29,19 @@ The model lives in the `ollama_models` volume and survives restarts. Changing th
 
 | Item | Where stored | Expires |
 |---|---|---|
-| GitHub fine-grained PAT | n8n credential | YYYY-MM-DD (fill in) |
-| Telegram bot token | n8n credential | none |
+| GitHub PAT `n8n-sources` (all-maker, strahinjamilosevic, career: Contents read, Webhooks read/write) | n8n credential `GitHub sources (read)` | 2027-01-18 |
+| GitHub PAT `n8n-review-queue` (all-maker-context: Contents read, Issues read/write) | n8n credential `GitHub review queue` | 2027-01-18 |
+| Telegram bot token (@Allmaker_publish_bot) | n8n credential `Telegram approvals` + password manager | none |
 | `N8N_ENCRYPTION_KEY` | `.env` + password manager | never rotate without a migration plan |
 | `QDRANT_API_KEY` | `.env` + n8n credential | none |
+
+## Rotate the GitHub tokens
+
+Both tokens expire on the date above. Two weeks before:
+
+1. GitHub > Settings > Developer settings > Fine-grained tokens. Open the token, click **Regenerate token**, keep the same expiry length.
+2. n8n > Credentials. Open the matching credential, paste the new token, save. Expect "Connection tested successfully".
+3. Update the expiry date in this table and commit.
 
 ## Daily operations
 

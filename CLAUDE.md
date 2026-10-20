@@ -126,7 +126,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 1. [DONE] [OWNER] Hetzner Cloud account (https://www.hetzner.com/cloud). Create project `all-maker-context`. Security > SSH keys > add the public key from Phase 0 step 4.
 2. [DROPPED] LLM API account. Not needed: tagging and drafting happen in Claude Code; embeddings run locally in Ollama (`nomic-embed-text`).
-3. [OWNER] GitHub fine-grained PAT (Settings > Developer settings > Fine-grained tokens). Repository access: the 3 source repos + all-maker-context. Permissions: Contents read, Metadata read, Webhooks read/write, Issues read/write (all-maker-context only). Expiry: 90 days; record the date in `docs/runbook.md`.
+3. [DONE] [OWNER] Two GitHub fine-grained PATs, least privilege: `n8n-sources` (all-maker, strahinjamilosevic, career: Contents read, Webhooks read/write) and `n8n-review-queue` (all-maker-context: Contents read, Issues read/write). Expiry 2027-01-18, recorded in `docs/runbook.md`.
 4. [DONE] [OWNER] Telegram bot for approvals: in Telegram, message @BotFather, `/newbot`, save the token. Message your bot once, then get your chat ID.
 5. [OWNER] Later (Phase 6): Bluesky app password (Settings > Privacy and security > App passwords). Mastodon access token (instance Preferences > Development > New application, scope `write:statuses`).
 6. [OWNER] Later (Phase 6): LinkedIn Developer app (https://developer.linkedin.com). Requires a LinkedIn Page to associate with; add the "Share on LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products.
@@ -171,7 +171,7 @@ Mark each step done in this file as you go. [OWNER] = manual step by Strahinja. 
 
 Build in the n8n UI with Claude Code giving node-by-node instructions; export each to `workflows/` when working.
 
-1. Credentials in n8n: GitHub (PAT), Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
+1. Credentials in n8n: [DONE] GitHub sources (read), [DONE] GitHub review queue, [DONE] Telegram approvals; Ollama (base URL `http://ollama:11434`), Qdrant (URL `http://qdrant:6333` + API key), Telegram.
 2. `ingest`: GitHub Trigger (push, per repo) + Schedule Trigger (weekly full re-index) > GitHub node / HTTP Request to fetch changed files > Code node (parse frontmatter, strip MDX, drop excluded paths) > Code node (validate frontmatter tags against `taxonomy/schema.yaml`). No LLM node.
 3. `quality-gate`: checks missing required fields, values outside vocabulary, duplicate content hash, `last_reviewed` older than `freshness_days`. Failures open or update a GitHub Issue in all-maker-context labeled `review-queue`, one per document.
 4. Store: Default Data Loader + Recursive Character Text Splitter > Embeddings Ollama (`nomic-embed-text`, 768 dimensions) > Qdrant Vector Store (collection `all_maker_context`), taxonomy fields as payload. Upsert by document path so edits replace old chunks.
