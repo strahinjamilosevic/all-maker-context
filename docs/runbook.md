@@ -45,9 +45,9 @@ Both tokens expire on the date above. Two weeks before:
 
 ## Daily operations
 
-Status: `docker compose ps`. All three services show `running`.
+Status: `docker compose ps`. All four services (caddy, n8n, ollama, qdrant) show `Up`.
 
-Logs: `docker compose logs -f n8n` (or `caddy`, `qdrant`). Ctrl+C to exit.
+Logs: `docker compose logs -f n8n` (or `caddy`, `qdrant`, `ollama`). Ctrl+C to exit.
 
 Restart one service: `docker compose restart n8n`.
 
