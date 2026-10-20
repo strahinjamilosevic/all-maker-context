@@ -29,6 +29,9 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?set N8N_ENCRYPTION_KEY in .env}
       N8N_SECURE_COOKIE: "true"
       N8N_RUNNERS_ENABLED: "true"
+      # Code nodes may load these modules: yaml parses frontmatter and the taxonomy, crypto hashes content.
+      NODE_FUNCTION_ALLOW_EXTERNAL: "yaml"
+      NODE_FUNCTION_ALLOW_BUILTIN: "crypto"
       N8N_PROXY_HOPS: "1"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
     volumes:
