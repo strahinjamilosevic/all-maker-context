@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "all-maker-context": {
+      "type": "http",
+      "url": "https://n8n.all-maker.com/mcp/all-maker-context",
+      "headers": {
+        "Authorization": "Bearer ${ALL_MAKER_MCP_TOKEN}"
+      }
+    }
+  }
+}

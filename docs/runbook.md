@@ -34,6 +34,7 @@ The model lives in the `ollama_models` volume and survives restarts. Changing th
 | Telegram bot token (@Allmaker_publish_bot) | n8n credential `Telegram approvals` + password manager | none |
 | `N8N_ENCRYPTION_KEY` | `.env` + password manager | never rotate without a migration plan |
 | `QDRANT_API_KEY` | `.env` + n8n credential | none |
+| MCP bearer token | n8n credential `MCP bearer token` + password manager + `ALL_MAKER_MCP_TOKEN` on clients | none; rotate if leaked |
 
 ## Rotate the GitHub tokens
 
@@ -48,6 +49,14 @@ Both tokens expire on the date above. Two weeks before:
 Workflow `error-alert` (`workflows/error-alert.json`) sends a Telegram message to @Allmaker_publish_bot's chat when a connected workflow fails: workflow, node, error, execution link. It must be published to be selectable.
 
 Connect a new workflow: open it, **Settings** > **Error Workflow** > `error-alert`, and set **Timeout Workflow** to 15 minutes. `ingest` is connected.
+
+## MCP server
+
+Endpoint: `https://n8n.all-maker.com/mcp/all-maker-context`. Workflows `mcp-server` (trigger and tools) and `mcp-tools` (logic). Both must be published.
+
+Auth: bearer token in n8n credential `MCP bearer token` and in the password manager. Clients read it from the environment variable `ALL_MAKER_MCP_TOKEN`; `.mcp.json` in this repo references the variable, never the value.
+
+Rotate the token: generate a new one (`openssl rand -hex 32`), update the n8n credential, update `ALL_MAKER_MCP_TOKEN` on each client machine, restart the clients.
 
 ## Daily operations
 
