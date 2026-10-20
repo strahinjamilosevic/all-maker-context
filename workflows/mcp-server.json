@@ -6,43 +6,43 @@
         "authentication": "bearerAuth",
         "path": "all-maker-context"
       },
-      "id": "8eae369e-1256-4ef9-a20a-1f3013c71ba4",
+      "id": "4d0a7f49-c356-4144-8c27-e673e3dbe2c4",
       "name": "MCP server",
       "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
       "typeVersion": 2,
       "position": [
-        0,
-        0
+        208,
+        208
       ],
+      "webhookId": "34a49a47-e9ea-4f44-a997-fd37872abcc7",
       "credentials": {
         "httpBearerAuth": {
-          "id": "",
+          "id": "27NvzU1zCB7Qj8Nd",
           "name": "MCP bearer token"
         }
-      },
-      "webhookId": "34a49a47-e9ea-4f44-a997-fd37872abcc7"
+      }
     },
     {
       "parameters": {
         "description": "Search Strahinja Milošević's professional content by meaning: blog posts, guides, portfolio case studies, career achievements, and profile data. Returns the best-matching documents with title, url, taxonomy tags, and excerpts. Originals rank above copies. Filters, all optional, comma-separate to match any: employer (bitvavo, adyen, proglove, blackrock, ncr); domain (technical_writing, api_docs, docs_platform, docs_strategy, information_architecture, content_governance, ai_tooling, leadership, career, lifestyle, crafting); content_type (blog_post, guide, craft_log, case_study, profile_page, achievement, profile_data, social_profile); skill, for example api_governance, information_architecture, docs_as_code; tool_name, for example openapi, docusaurus, kubernetes.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "GEC66yQBZioOBnf7",
           "mode": "list",
+          "cachedResultUrl": "/workflow/GEC66yQBZioOBnf7",
           "cachedResultName": "mcp-tools"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
             "tool": "search",
-            "query": "={{ $fromAI('query', `What to find, in natural language`, 'string', '') }}",
-            "employer": "={{ $fromAI('employer', `Optional employer filter`, 'string', '') }}",
-            "domain": "={{ $fromAI('domain', `Optional domain filter`, 'string', '') }}",
-            "skill": "={{ $fromAI('skill', `Optional skill filter`, 'string', '') }}",
-            "tool_name": "={{ $fromAI('tool_name', `Optional tool filter`, 'string', '') }}",
-            "content_type": "={{ $fromAI('content_type', `Optional content type filter`, 'string', '') }}",
-            "limit": "={{ $fromAI('limit', `Number of documents, 1 to 10. Default 5`, 'number', 5) }}",
-            "doc_id": ""
+            "query": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('query', ``, 'string') }}",
+            "employer": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('employer', ``, 'string') }}",
+            "domain": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('domain', ``, 'string') }}",
+            "skill": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('skill', ``, 'string') }}",
+            "tool_name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('tool_name', ``, 'string') }}",
+            "content_type": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('content_type', ``, 'string') }}",
+            "limit": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('limit', ``, 'number') }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -53,8 +53,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "query",
@@ -63,8 +62,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "employer",
@@ -73,8 +71,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "domain",
@@ -83,8 +80,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "skill",
@@ -93,8 +89,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "tool_name",
@@ -103,8 +98,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "content_type",
@@ -113,8 +107,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "limit",
@@ -123,8 +116,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
               "id": "doc_id",
@@ -133,21 +125,20 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             }
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
         }
       },
-      "id": "6cf430c9-f51c-4798-91f4-dfb03e1dd342",
+      "id": "d535d61f-ebb7-4db8-8499-02028e870c22",
       "name": "search_evidence",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        -120,
-        260
+        80,
+        464
       ]
     },
     {
@@ -155,22 +146,16 @@
         "description": "Return the full text and tags of one document by doc_id (format source:path, as returned by search_evidence). Use it when excerpts are not enough. Only indexed documents are available.",
         "workflowId": {
           "__rl": true,
-          "value": "",
+          "value": "GEC66yQBZioOBnf7",
           "mode": "list",
+          "cachedResultUrl": "/workflow/GEC66yQBZioOBnf7",
           "cachedResultName": "mcp-tools"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
             "tool": "get",
-            "query": "",
-            "employer": "",
-            "domain": "",
-            "skill": "",
-            "tool_name": "",
-            "content_type": "",
-            "limit": 1,
-            "doc_id": "={{ $fromAI('doc_id', `Document id, for example portfolio:projects/bitvavo-api-docs-platform.mdx`, 'string', '') }}"
+            "doc_id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('doc_id', ``, 'string') }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -181,8 +166,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "query",
@@ -191,8 +175,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "employer",
@@ -201,8 +184,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "domain",
@@ -211,8 +193,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "skill",
@@ -221,8 +202,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "tool_name",
@@ -231,8 +211,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "content_type",
@@ -241,8 +220,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
               "id": "limit",
@@ -251,8 +229,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
               "id": "doc_id",
@@ -261,40 +238,40 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             }
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": false
         }
       },
-      "id": "6f86d244-9c5b-4277-b83d-b4876231d364",
+      "id": "89a03ffa-38b2-4705-96a9-3c0504eda0a9",
       "name": "get_document",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2.2,
       "position": [
-        160,
-        260
+        368,
+        464
       ]
     },
     {
       "parameters": {
         "content": "## MCP server\nEndpoint: `https://n8n.all-maker.com/mcp/all-maker-context`. Bearer token required. Two read-only tools; the work happens in the `mcp-tools` workflow.",
-        "width": 560,
         "height": 180,
+        "width": 560,
         "color": 6
       },
-      "id": "d697e61b-2946-44f7-b39f-f22e805ea396",
+      "id": "89cf0640-24ae-4dc8-bf3c-5843346c79aa",
       "name": "Note 3",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -200,
-        -200
+        0,
+        0
       ]
     }
   ],
+  "pinData": {},
   "connections": {
     "search_evidence": {
       "ai_tool": [
@@ -319,10 +296,15 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "errorWorkflow": "DuEIlMGzLbThD3UP"
   },
-  "pinData": {},
+  "versionId": "ff5b7914-46db-43fc-acfc-7d15e4ea02f8",
+  "meta": {},
+  "nodeGroups": [],
+  "id": "ogiakJFmRb2I5P2b",
   "tags": []
 }

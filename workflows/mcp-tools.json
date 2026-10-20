@@ -3,55 +3,46 @@
   "nodes": [
     {
       "parameters": {
-        "inputSource": "workflowInputs",
         "workflowInputs": {
           "values": [
             {
-              "name": "tool",
-              "type": "string"
+              "name": "tool"
             },
             {
-              "name": "query",
-              "type": "string"
+              "name": "query"
             },
             {
-              "name": "employer",
-              "type": "string"
+              "name": "employer"
             },
             {
-              "name": "domain",
-              "type": "string"
+              "name": "domain"
             },
             {
-              "name": "skill",
-              "type": "string"
+              "name": "skill"
             },
             {
-              "name": "tool_name",
-              "type": "string"
+              "name": "tool_name"
             },
             {
-              "name": "content_type",
-              "type": "string"
+              "name": "content_type"
             },
             {
               "name": "limit",
               "type": "number"
             },
             {
-              "name": "doc_id",
-              "type": "string"
+              "name": "doc_id"
             }
           ]
         }
       },
-      "id": "a626dc5a-e417-4d73-8af8-b6c582045d55",
+      "id": "894220e4-ffb6-40f9-851c-82151c32759b",
       "name": "Tool request",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
         0,
-        300
+        320
       ]
     },
     {
@@ -78,68 +69,68 @@
         },
         "options": {}
       },
-      "id": "45be35a6-b828-4596-91e7-5a36b202a11c",
+      "id": "483be3fc-2356-412f-8126-cd6858187e0b",
       "name": "Which tool?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        220,
-        300
+        224,
+        320
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://ollama:11434/api/embed",
-        "options": {},
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'nomic-embed-text', input: $('Tool request').first().json.query }) }}"
+        "jsonBody": "={{ JSON.stringify({ model: 'nomic-embed-text', input: $('Tool request').first().json.query }) }}",
+        "options": {}
       },
-      "id": "714d9644-1090-40d3-aba9-581c63254183",
+      "id": "d1a3ac4f-a7b5-4ab1-85f2-f71c985a8972",
       "name": "Embed query",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        460,
-        160
+        464,
+        192
       ]
     },
     {
       "parameters": {
         "jsCode": "// Turn optional filters into a Qdrant filter. Comma-separated values match any of them.\nconst req = $('Tool request').first().json;\nconst vector = $input.first().json.embeddings[0];\nconst fields = { employer: 'employer', domain: 'domain', skill: 'skills', tool_name: 'tools', content_type: 'content_type' };\nconst must = [];\nfor (const [input, key] of Object.entries(fields)) {\n  const values = String(req[input] || '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);\n  if (values.length === 1) must.push({ key: `metadata.${key}`, match: { value: values[0] } });\n  if (values.length > 1) must.push({ key: `metadata.${key}`, match: { any: values } });\n}\nreturn [{ json: { query: vector, limit: 30, with_payload: true, ...(must.length ? { filter: { must } } : {}) } }];\n"
       },
-      "id": "2fa412ff-af65-464c-aacd-b619ce064ef0",
+      "id": "df499047-a603-4f5d-9f96-3a18ced57238",
       "name": "Build search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        680,
-        160
+        688,
+        192
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://qdrant:6333/collections/all_maker_context/points/query",
-        "options": {},
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "qdrantApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}"
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
       },
-      "id": "20f81b11-2d39-45ec-b02c-93479bdbb5b9",
+      "id": "26d6d04f-368d-41df-81c8-6ab48a142226",
       "name": "Search Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        900,
-        160
+        912,
+        192
       ],
       "credentials": {
         "qdrantApi": {
-          "id": "",
+          "id": "vUEw3IAzBKFqbYsZ",
           "name": "Qdrant"
         }
       }
@@ -148,37 +139,37 @@
       "parameters": {
         "jsCode": "// Group chunks by document, keep the best score, and prefer originals over copies.\nconst req = $('Tool request').first().json;\nconst limit = Math.min(Math.max(parseInt(req.limit, 10) || 5, 1), 10);\nconst points = ($input.first().json.result || {}).points || [];\nconst docs = new Map();\nfor (const p of points) {\n  const m = (p.payload || {}).metadata || {};\n  if (!docs.has(m.doc_id)) {\n    docs.set(m.doc_id, {\n      doc_id: m.doc_id, title: m.title, url: m.url || m.github_url, content_type: m.content_type,\n      employer: m.employer || undefined, domain: m.domain, skills: m.skills || undefined, tools: m.tools || undefined,\n      last_reviewed: m.last_reviewed || undefined, stale: m.stale || undefined,\n      canonical: m.canonical || undefined, score: Math.round(p.score * 1000) / 1000, excerpts: [],\n    });\n  }\n  const d = docs.get(m.doc_id);\n  if (d.excerpts.length < 2) d.excerpts.push(String(p.payload.content || '').replace(/\\s+/g, ' ').slice(0, 600));\n}\nlet results = [...docs.values()];\nconst ids = new Set(results.map((d) => d.doc_id));\n// A copy whose original is also in the results is dropped. Otherwise it stays, with a pointer to the original.\nresults = results.filter((d) => !d.canonical || ![].concat(d.canonical).some((c) => ids.has(c)));\nfor (const d of results) if (d.canonical) d.note = `Restates ${[].concat(d.canonical).join(', ')}. Prefer the original when citing.`;\nreturn [{ json: {\n  query: req.query,\n  filters: Object.fromEntries(['employer', 'domain', 'skill', 'tool_name', 'content_type'].filter((k) => req[k]).map((k) => [k, req[k]])),\n  results: results.slice(0, limit),\n  hint: results.length ? 'Cite the url. Call get_document with a doc_id for the full text.' : 'No match. Try fewer filters or other words.',\n} }];\n"
       },
-      "id": "4e9727eb-08f3-4daf-afd3-5dd89275b40a",
+      "id": "5cb261a1-b8c5-4b47-ac4a-09f6b11841cf",
       "name": "Format results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1120,
-        160
+        192
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "http://qdrant:6333/collections/all_maker_context/points/scroll",
-        "options": {},
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "qdrantApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ limit: 1, with_payload: true, with_vector: false, filter: { must: [{ key: 'metadata.doc_id', match: { value: $('Tool request').first().json.doc_id } }] } }) }}"
+        "jsonBody": "={{ JSON.stringify({ limit: 1, with_payload: true, with_vector: false, filter: { must: [{ key: 'metadata.doc_id', match: { value: $('Tool request').first().json.doc_id } }] } }) }}",
+        "options": {}
       },
-      "id": "1f0727f8-9b8e-4b01-be27-ceaf64099b39",
+      "id": "d00d8ed2-9550-4a3e-8549-26cb3f5e0080",
       "name": "Find document",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        460,
-        440
+        464,
+        464
       ],
       "credentials": {
         "qdrantApi": {
-          "id": "",
+          "id": "vUEw3IAzBKFqbYsZ",
           "name": "Qdrant"
         }
       }
@@ -187,27 +178,18 @@
       "parameters": {
         "jsCode": "// Only documents that passed the quality gate are in Qdrant. Anything else is not served.\nconst req = $('Tool request').first().json;\nconst point = (($input.first().json.result || {}).points || [])[0];\nif (!point) {\n  return [{ json: { found: false, doc_id: req.doc_id } }];\n}\nconst m = point.payload.metadata;\nconst [, owner, repo, branch, path] = m.github_url.match(/^https:\\/\\/github\\.com\\/([^/]+)\\/([^/]+)\\/blob\\/([^/]+)\\/(.+)$/);\nreturn [{ json: { found: true, meta: m, api_url: `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURI(path)}?ref=${branch}` } }];\n"
       },
-      "id": "84b39379-8ef8-41ab-a22d-7cff5c9f65ff",
+      "id": "9c048484-6f7f-4480-8f88-a98d4b6b7316",
       "name": "Check stored",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        680,
-        440
+        688,
+        464
       ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "={{ $json.api_url || 'https://api.github.com/zen' }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "text",
-              "outputPropertyName": "data"
-            }
-          }
-        },
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "githubApi",
         "sendHeaders": true,
@@ -218,19 +200,26 @@
               "value": "application/vnd.github.raw+json"
             }
           ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
         }
       },
-      "id": "0a3391a9-5770-4648-8016-8b88c6ff87a0",
+      "id": "9e6a348b-5e67-40c5-a8b4-48b301332d2b",
       "name": "Fetch from GitHub",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        900,
-        440
+        912,
+        464
       ],
       "credentials": {
         "githubApi": {
-          "id": "",
+          "id": "nAvjTqebU2GYUngj",
           "name": "GitHub sources (read)"
         }
       },
@@ -240,48 +229,49 @@
       "parameters": {
         "jsCode": "const check = $('Check stored').first().json;\nif (!check.found) {\n  return [{ json: { error: `Not available: ${check.doc_id}. Only indexed documents can be read. Use search_evidence to find a doc_id (format source:path).` } }];\n}\nconst m = check.meta;\nconst text = $input.first().json.data;\nif (typeof text !== 'string') return [{ json: { error: `Could not read ${m.doc_id} from GitHub. Try again later.` } }];\nreturn [{ json: {\n  doc_id: m.doc_id, title: m.title, url: m.url || m.github_url, github_url: m.github_url,\n  content_type: m.content_type, employer: m.employer || undefined, last_reviewed: m.last_reviewed || undefined,\n  stale: m.stale || undefined, canonical: m.canonical || undefined, content: text,\n} }];\n"
       },
-      "id": "be3a0719-ed04-4ba4-84b0-6848198f5fbf",
+      "id": "9e63ce84-7fd9-4169-a755-0c243470bcab",
       "name": "Format document",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1120,
-        440
+        464
       ]
     },
     {
       "parameters": {
         "content": "## search_evidence\nEmbed the question with Ollama, search Qdrant with optional taxonomy filters, group chunks by document. Copies with a `canonical` original in the results are dropped.",
-        "width": 900,
         "height": 300,
+        "width": 900,
         "color": 4
       },
-      "id": "a652edae-eee5-4c56-87f9-049b5d434fb0",
+      "id": "354357f8-b074-4449-a340-e3e627eb63e5",
       "name": "Note 10",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         400,
-        -20
+        0
       ]
     },
     {
       "parameters": {
         "content": "## get_document\nServe a document only if ingest stored it. Excluded, stub, and invalid documents are never in Qdrant, so they are never served. Full text comes from GitHub.",
-        "width": 900,
         "height": 300,
+        "width": 900,
         "color": 5
       },
-      "id": "fcf9690d-b6ec-4539-a134-61225618cc44",
+      "id": "7d9e7e9f-6454-4922-b08b-a85d48a5cf75",
       "name": "Note 11",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         400,
-        300
+        320
       ]
     }
   ],
+  "pinData": {},
   "connections": {
     "Tool request": {
       "main": [
@@ -379,11 +369,18 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "callerPolicy": "workflowsFromSameOwner"
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "DuEIlMGzLbThD3UP",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   },
-  "pinData": {},
+  "versionId": "9f5ef6be-7668-4a9f-a874-fc1541bd9d38",
+  "meta": {},
+  "nodeGroups": [],
+  "id": "GEC66yQBZioOBnf7",
   "tags": []
 }
