@@ -194,8 +194,8 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ### Phase 7: Documentation
 
-1. [CLAUDE] `README.md`: purpose, architecture diagram, setup summary, links to ADRs.
-2. [CLAUDE] ADRs in `docs/decisions/`.
+1. [DONE 2026-10-29] [CLAUDE] `README.md`: purpose, architecture diagram, setup summary, links to ADRs. Plus `docs/architecture.md`.
+2. [DONE 2026-10-29] [CLAUDE] ADRs in `docs/decisions/` (0001 to 0004).
 
 ## 9. Open items
 
