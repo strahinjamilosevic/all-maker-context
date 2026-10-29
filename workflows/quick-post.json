@@ -1,0 +1,1296 @@
+{
+  "name": "quick-post",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "name": "On Telegram message",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "webhookId": "4a3aa5af-4087-48ac-be06-1635793d8b67",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "700e22b2-0386-4e5d-bdbb-a501e1bbe22c",
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One Telegram update in, one action out:\n// draft (preview a new post), post (Post tapped), reply_draft (preview a reply to a notification),\n// reply (Send reply tapped), like (Like tapped on a notification), say (answer only).\n// Only the owner's updates count. Previews and notifications carry their text and target link, so nothing is stored.\nconst OWNER = 8199050777;\nconst u = $json;\nconst cq = u.callback_query;\nconst msg = cq ? cq.message : u.message;\nconst from = cq ? cq.from : (u.message || {}).from;\nif (!from || from.id !== OWNER || !msg) return [];\nconst chat_id = msg.chat.id;\n\nconst graphemes = (s) => (typeof Intl !== 'undefined' && Intl.Segmenter)\n  ? [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(s)].length : [...s].length;\nconst bytes = (str) => encodeURIComponent(str).replace(/%[0-9A-F]{2}/g, 'x').length;\nconst esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\n// One text for the given platforms. Bluesky shows each URL shortened and linked, like the Bluesky app does.\n// Mastodon counts every URL as 23 characters; mastodonPrefix is the @mention a Mastodon reply starts with.\nconst LIMITS = { Bluesky: 300, Mastodon: 500, LinkedIn: 3000 };\nconst check = (raw, platforms, mastodonPrefix = '') => {\n  const text = String(raw || '').trim();\n  if (!text) return { error: 'Send the text as a message.' };\n  const urls = [...text.matchAll(/https?:\\/\\/[^\\s<>\"')\\]]+/g)]\n    .map((m) => ({ index: m.index, uri: m[0].replace(/[.,;:!?]+$/, '') }));\n  let btext = '';\n  let pos = 0;\n  const facets = [];\n  for (const { index, uri } of urls) {\n    btext += text.slice(pos, index);\n    let short = uri.replace(/^https?:\\/\\/(www\\.)?/, '');\n    if (short.length > 30) short = short.slice(0, 27) + '...';\n    const byteStart = bytes(btext);\n    btext += short;\n    facets.push({ index: { byteStart, byteEnd: byteStart + bytes(short) }, features: [{ $type: 'app.bsky.richtext.facet#link', uri }] });\n    pos = index + uri.length;\n  }\n  btext += text.slice(pos);\n  const masto = mastodonPrefix + urls.reduce((t, x) => t.replace(x.uri, 'x'.repeat(23)), text);\n  const length = { Bluesky: graphemes(btext), Mastodon: graphemes(masto), LinkedIn: graphemes(text) };\n  const over = platforms.filter((p) => length[p] > LIMITS[p]);\n  if (over.length) {\n    return { error: over.map((p) => `Too long for ${p}: ${length[p]} of ${LIMITS[p]} characters. Shorten by ${length[p] - LIMITS[p]}.`).join('\\n') + '\\nNothing was sent. Send the shorter text again.' };\n  }\n  // The first https link gets a link card.\n  const url = (urls.find((x) => x.uri.startsWith('https://')) || {}).uri || '';\n  return { text, url, bluesky: { text: btext, facets } };\n};\n\n// The target of a notification or reply preview is its \"Open on ...\" / \"Reply on ...\" link.\nconst target = (m) => {\n  for (const e of (m && m.entities) || []) {\n    if (e.type !== 'text_link') continue;\n    let x = e.url.match(/^https:\\/\\/bsky\\.app\\/profile\\/(did:[^/]+)\\/post\\/([^/?#]+)/);\n    if (x) return { platform: 'Bluesky', url: e.url, uri: `at://${x[1]}/app.bsky.feed.post/${x[2]}` };\n    x = e.url.match(/^https:\\/\\/mastodon\\.social\\/@([^/]+)\\/(\\d+)(?:#v=(\\w+))?/);\n    if (x) return { platform: 'Mastodon', url: e.url, acct: x[1], status_id: x[2], visibility: x[3] || 'public' };\n  }\n  return null;\n};\nconst prefixFor = (t) => (t.platform === 'Mastodon' ? `@${t.acct} ` : '');\nconst withPrefix = (t, text) => (t.platform === 'Mastodon' && !text.toLowerCase().startsWith(`@${t.acct}`.toLowerCase()) ? prefixFor(t) + text : text);\nconst say = (reply_to, text, query_id) => [{ json: { action: 'say', chat_id, reply_to, text, query_id: query_id || '' } }];\n\nif (cq) {\n  if (!msg.text) return say(msg.message_id, 'This message is too old or has no text. Send the text again.', cq.id);\n  // A preview or notification button works once: a second tap or a tap after Cancel does nothing.\n  const sd = $getWorkflowStaticData('global');\n  const key = `${chat_id}:${msg.message_id}`;\n  sd.handled = sd.handled || [];\n  if (sd.handled.includes(key)) return say(msg.message_id, 'Already handled.', cq.id);\n  sd.handled = [...sd.handled, key].slice(-500);\n  const base = { chat_id, preview_id: msg.message_id, query_id: cq.id };\n  if (cq.data === 'cancel') return say(msg.message_id, 'Cancelled. Nothing was sent.', cq.id);\n  if (cq.data === 'post') {\n    const c = check(msg.text, ['Bluesky', 'Mastodon', 'LinkedIn']);\n    if (c.error) return say(msg.message_id, c.error, cq.id);\n    return [{ json: { action: 'post', ...base, ...c } }];\n  }\n  if (cq.data === 'reply' || cq.data === 'like') {\n    const t = target(msg);\n    if (!t) return say(msg.message_id, 'No target link found in this message.', cq.id);\n    if (cq.data === 'like') return [{ json: { action: 'like', platform: t.platform, target: t, ...base } }];\n    // Preview layout: \"Reply on <platform>...\" line, blank line, reply text.\n    const body = msg.text.slice(msg.text.indexOf('\\n\\n') + 2);\n    const c = check(body, [t.platform], prefixFor(t));\n    if (c.error) return say(msg.message_id, c.error, cq.id);\n    return [{ json: {\n      action: 'reply', platform: t.platform, target: t, ...base, ...c,\n      mastodon_text: withPrefix(t, c.text),\n      // A Mastodon reply is never more public than the post it answers.\n      mastodon_visibility: t.visibility === 'public' ? 'public' : t.visibility,\n    } }];\n  }\n  return say(msg.message_id, 'Unknown button.', cq.id);\n}\n\nif (msg.text && /^\\/ids\\b/.test(msg.text)) {\n  return say(msg.message_id, `Chat ID: ${chat_id}\\nTopic ID: ${msg.message_thread_id || 'none'}`);\n}\nif (msg.text && msg.text.startsWith('/')) {\n  return say(msg.message_id, 'Send a text to post it on LinkedIn, Bluesky, and Mastodon. You get a preview with a Post button first.\\n\\nReply to a Bluesky or Mastodon notification to answer on that platform.\\n\\nLimit: 300 characters (Bluesky). A link counts as its short form, at most 30 characters. The first https link gets a link card.\\nText only.\\n\\n/ids shows the chat and topic ID.');\n}\nif (msg.photo || msg.video || msg.document || msg.animation || msg.sticker || msg.voice || msg.audio) {\n  return say(msg.message_id, 'Text only. Nothing was sent.');\n}\n\n// A reply to a bot notification answers on that platform. In a forum topic every message replies to the\n// topic's first message, which has no target link, so it falls through to a new post.\nconst parent = msg.reply_to_message;\nconst t = parent && parent.from && parent.from.is_bot ? target(parent) : null;\nif (t) {\n  const c = check(msg.text, [t.platform], prefixFor(t));\n  if (c.error) return say(msg.message_id, c.error);\n  const to = t.platform === 'Mastodon' ? ` to @${t.acct}` : '';\n  return [{ json: { action: 'reply_draft', chat_id, reply_to: msg.message_id, html: `<a href=\"${t.url}\">Reply on ${t.platform}${esc(to)}</a>\\n\\n${esc(withPrefix(t, c.text))}` } }];\n}\n\nconst c = check(msg.text, ['Bluesky', 'Mastodon', 'LinkedIn']);\nif (c.error) return say(msg.message_id, c.error);\nreturn [{ json: { action: 'draft', chat_id, reply_to: msg.message_id, text: c.text } }];\n"
+      },
+      "name": "Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "bf235bed-a22e-47db-a541-6ff5c95f714d",
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7ac7ae2f-73d6-473d-9e16-612c3ece5a2c",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "draft",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "f6d9e3e9-3d9b-43fd-aaeb-c988c59130d7",
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Post to all 3",
+                    "additionalFields": {
+                      "callback_data": "post"
+                    }
+                  },
+                  {
+                    "text": "Cancel",
+                    "additionalFields": {
+                      "callback_data": "cancel"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $json.reply_to }}"
+        }
+      },
+      "name": "Send preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "31d9a6c0-fb3d-4575-b793-ec60ecd55204",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "ddb12ef6-4dff-4cb0-b558-bdc18e7cc507",
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "03c043df-569a-42d6-a9be-5f5de594aec7",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "reply_draft",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Reply draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "db2cc0aa-7207-4465-bb42-3773350bd4d0",
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.html }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Send reply",
+                    "additionalFields": {
+                      "callback_data": "reply"
+                    }
+                  },
+                  {
+                    "text": "Cancel",
+                    "additionalFields": {
+                      "callback_data": "cancel"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true,
+          "reply_to_message_id": "={{ $json.reply_to }}"
+        }
+      },
+      "name": "Send reply preview",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "ac9c77b5-25bc-4d61-9399-52ceae737829",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "3e5d5177-8f2b-4ab9-aec7-3bb26d2b4066",
+      "position": [
+        880,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "26bcaa0b-2b3b-4aeb-b265-4649c5198816",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "post",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Post?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "9b8a0ae6-b8a1-4a04-9d22-6d88059ffbdf",
+      "position": [
+        880,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.query_id }}",
+        "additionalFields": {
+          "text": "Posting"
+        }
+      },
+      "name": "Answer: posting",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "0305b9f3-1733-4591-9ff0-d0c5423c8526",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "5e0bb809-a1cd-4e4e-93b6-b9b14b1dc8f4",
+      "position": [
+        1100,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a3e39d33-d161-461a-aeac-de169c7492b1",
+              "leftValue": "={{ $('Route').first().json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "857559a4-a02e-420c-8deb-f56443ac3f36",
+      "position": [
+        1320,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Route').first().json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (compatible; all-maker-quick-post)"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "name": "Fetch page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "id": "5de1a5bf-7b4e-43fc-aa0f-54387d4fdf6c",
+      "position": [
+        1540,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Title and description for the link card, from the page's Open Graph tags.\n// A page that cannot be fetched still gets a card, with the URL as title.\nconst p = $('Route').first().json;\nif (!p.url) return [{ json: { url: '', title: '', description: '' } }];\nlet html = '';\ntry {\n  if ($('Fetch page').isExecuted) html = String($('Fetch page').first().json.data || '');\n} catch (e) {}\nconst decode = (s) => s\n  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))\n  .replace(/&#(\\d+);/g, (_, d) => String.fromCodePoint(Number(d)))\n  .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')\n  .replace(/\\s+/g, ' ').trim();\nconst attr = (tag, name) => {\n  const m = tag.match(new RegExp(`\\\\b${name}\\\\s*=\\\\s*(?:\"([^\"]*)\"|'([^']*)')`, 'i'));\n  return m ? (m[1] ?? m[2]) : '';\n};\nconst metas = html.match(/<meta\\b[^>]*>/gi) || [];\nconst meta = (key) => {\n  for (const t of metas) {\n    if ((attr(t, 'property') || attr(t, 'name')).toLowerCase() === key) return decode(attr(t, 'content'));\n  }\n  return '';\n};\nconst titleTag = decode((html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i) || [])[1] || '');\nreturn [{ json: {\n  url: p.url,\n  title: (meta('og:title') || meta('twitter:title') || titleTag || p.url).slice(0, 300),\n  description: (meta('og:description') || meta('twitter:description') || meta('description')).slice(0, 1000),\n} }];\n"
+      },
+      "name": "Link card",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "7372af4e-991d-4802-b3e1-a1a7161c14c8",
+      "position": [
+        1760,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ec724c1e-6b8d-48a8-af29-3d9b69730869",
+              "leftValue": "={{ $json.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "LinkedIn link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "dc693c2f-42b8-4495-9dae-514e67dfaec7",
+      "position": [
+        1980,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "person": "6HPs8KbNbH",
+        "text": "={{ $('Route').first().json.text }}",
+        "shareMediaCategory": "ARTICLE",
+        "additionalFields": {
+          "description": "={{ $('Link card').first().json.description }}",
+          "originalUrl": "={{ $('Link card').first().json.url }}",
+          "title": "={{ $('Link card').first().json.title }}"
+        }
+      },
+      "name": "Post to LinkedIn (link)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "pqETWnEtAEUXoeCK",
+          "name": "LinkedIn"
+        }
+      },
+      "id": "9c8071f3-8776-40d0-a243-4400b9c696f0",
+      "position": [
+        2200,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "person": "6HPs8KbNbH",
+        "text": "={{ $('Route').first().json.text }}",
+        "shareMediaCategory": "NONE",
+        "additionalFields": {}
+      },
+      "name": "Post to LinkedIn (text)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "pqETWnEtAEUXoeCK",
+          "name": "LinkedIn"
+        }
+      },
+      "id": "fd0b9b6e-6477-48b4-af43-7f15ee4af0e9",
+      "position": [
+        2200,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.server.createSession",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {}
+      },
+      "name": "Bluesky session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RpA6i2EoPwESw3fm",
+          "name": "Bluesky app password"
+        }
+      },
+      "id": "d1f18782-11e4-46d0-93a8-857d4927c9f8",
+      "position": [
+        2420,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Bluesky record: shortened, clickable links from Route, plus a link card when the post has a link.\nconst p = $('Route').first().json;\nconst s = $('Bluesky session').first().json;\nconst card = $('Link card').first().json;\nconst record = {\n  $type: 'app.bsky.feed.post',\n  text: p.bluesky.text,\n  createdAt: new Date().toISOString(),\n  langs: ['en'],\n  facets: p.bluesky.facets,\n};\nif (card.url) record.embed = { $type: 'app.bsky.embed.external', external: { uri: card.url, title: card.title, description: card.description } };\nreturn [{ json: { repo: s.did, collection: 'app.bsky.feed.post', record } }];\n"
+      },
+      "name": "Build Bluesky post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueRegularOutput",
+      "id": "8a9fdfcb-c870-485d-b126-36087dff40cb",
+      "position": [
+        2640,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.repo.createRecord",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Bluesky session').first().json.accessJwt }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Post to Bluesky",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "id": "c12f67a6-4222-42e5-a9a5-20441bd5f88f",
+      "position": [
+        2860,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mastodon.social/api/v1/statuses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ 'quick-post:' + $('Route').first().json.chat_id + ':' + $('Route').first().json.preview_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $('Route').first().json.text, visibility: 'public', language: 'en' }) }}",
+        "options": {}
+      },
+      "name": "Post to Mastodon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eMhcIaJVn1XzYNMN",
+          "name": "Mastodon token"
+        }
+      },
+      "id": "292dafc8-c74d-47b1-90c9-c148dc51470d",
+      "position": [
+        3080,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect the outcome per platform, with a link to each new post where the API returns one.\nconst ran = (n) => { try { return $(n).isExecuted; } catch (e) { return false; } };\nconst out = (n) => (ran(n) ? $(n).first().json : null);\nconst errorText = (j) => {\n  if (!j || !j.error) return null;\n  const e = j.error;\n  return (typeof e === 'string' ? e : [e.message, e.description].filter(Boolean).join(': ') || 'Unknown error').slice(0, 500);\n};\nconst PLATFORMS = [\n  { name: 'LinkedIn', steps: ['Post to LinkedIn (link)', 'Post to LinkedIn (text)'] },\n  { name: 'Bluesky', steps: ['Bluesky session', 'Post to Bluesky'] },\n  { name: 'Mastodon', steps: ['Post to Mastodon'] },\n];\nconst lines = [];\nfor (const pl of PLATFORMS) {\n  const err = pl.steps.filter(ran).map((n) => errorText(out(n))).find(Boolean);\n  if (err) { lines.push(`${pl.name}: FAILED: ${err}`); continue; }\n  let link = '';\n  if (pl.name === 'Bluesky') {\n    const uri = (out('Post to Bluesky') || {}).uri || '';\n    const handle = (out('Bluesky session') || {}).handle;\n    if (uri && handle) link = ` https://bsky.app/profile/${handle}/post/${uri.split('/').pop()}`;\n  }\n  if (pl.name === 'Mastodon' && (out('Post to Mastodon') || {}).url) link = ` ${out('Post to Mastodon').url}`;\n  lines.push(`${pl.name}: posted${link}`);\n}\nreturn [{ json: { summary: lines.join('\\n') } }];\n"
+      },
+      "name": "Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "d70c39f8-1a39-4136-9c28-18cdbb08c2e3",
+      "position": [
+        3300,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Route').first().json.chat_id }}",
+        "text": "={{ $json.summary }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Route').first().json.preview_id }}"
+        }
+      },
+      "name": "Send result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "b203084e-8130-48ad-ba14-e6cf366ab428",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "39a1bd11-2d2d-4154-8c88-4e730270f141",
+      "position": [
+        3520,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "446b92a1-0110-4f3a-b7d0-a4e9d341a1ce",
+              "leftValue": "={{ ['reply', 'like'].includes($json.action) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Reply or like?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "80752d1b-2173-4555-98de-baa557f3c653",
+      "position": [
+        1100,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.query_id }}",
+        "additionalFields": {
+          "text": "Sending"
+        }
+      },
+      "name": "Answer: sending",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "60dddad0-736b-453f-a9d5-52692aeea451",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "546f9957-8f54-4a03-8434-9d62eb16d331",
+      "position": [
+        1320,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a308c660-08ab-4028-a7e5-e5b71550c355",
+              "leftValue": "={{ $('Route').first().json.platform }}",
+              "rightValue": "Bluesky",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "On Bluesky?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "ad73af88-3230-44c5-9402-39048c371e12",
+      "position": [
+        1540,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.server.createSession",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {}
+      },
+      "name": "Bluesky session (engage)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RpA6i2EoPwESw3fm",
+          "name": "Bluesky app password"
+        }
+      },
+      "id": "7e3a8e89-18e2-4bdc-a7d1-639cbac7e68d",
+      "position": [
+        1760,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://bsky.social/xrpc/app.bsky.feed.getPosts?uris=' + encodeURIComponent($('Route').first().json.target.uri) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Bluesky session (engage)').first().json.accessJwt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Get target post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "id": "90e81a94-7134-4e4c-987b-9d7762e0720a",
+      "position": [
+        1980,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reply or like on Bluesky. The target's cid and thread root come from the live post.\nconst r = $('Route').first().json;\nconst s = $('Bluesky session (engage)').first().json;\nconst post = ($json.posts || [])[0];\nif (!post) throw new Error('Bluesky post not found. It may have been deleted.');\nconst ref = { uri: post.uri, cid: post.cid };\nconst createdAt = new Date().toISOString();\nif (r.action === 'like') {\n  return [{ json: { repo: s.did, collection: 'app.bsky.feed.like', record: { $type: 'app.bsky.feed.like', subject: ref, createdAt } } }];\n}\nconst root = (post.record && post.record.reply && post.record.reply.root) || ref;\nreturn [{ json: { repo: s.did, collection: 'app.bsky.feed.post', record: {\n  $type: 'app.bsky.feed.post', text: r.bluesky.text, facets: r.bluesky.facets, createdAt, langs: ['en'],\n  reply: { root, parent: ref },\n} } }];\n"
+      },
+      "name": "Build Bluesky action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueRegularOutput",
+      "id": "61e9a247-71b0-4b8e-88a2-bba40772a668",
+      "position": [
+        2200,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.repo.createRecord",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Bluesky session (engage)').first().json.accessJwt }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "Bluesky create (engage)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "id": "29b9bf29-137f-4a57-baca-a4a0d64b0d2a",
+      "position": [
+        2420,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Route').first().json.action === 'like' ? 'https://mastodon.social/api/v1/statuses/' + $('Route').first().json.target.status_id + '/favourite' : 'https://mastodon.social/api/v1/statuses' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ 'engage:' + $('Route').first().json.chat_id + ':' + $('Route').first().json.preview_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Route').first().json.action === 'like' ? {} : { status: $('Route').first().json.mastodon_text, in_reply_to_id: $('Route').first().json.target.status_id, visibility: $('Route').first().json.mastodon_visibility, language: 'en' }) }}",
+        "options": {}
+      },
+      "name": "Mastodon action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eMhcIaJVn1XzYNMN",
+          "name": "Mastodon token"
+        }
+      },
+      "id": "a81ca95d-4222-4f45-a653-90f524fa117b",
+      "position": [
+        1980,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One line for the reply or like, with a link to the new reply where the API returns one.\nconst ran = (n) => { try { return $(n).isExecuted; } catch (e) { return false; } };\nconst out = (n) => (ran(n) ? $(n).first().json : null);\nconst errorText = (j) => {\n  if (!j || !j.error) return null;\n  const e = j.error;\n  return (typeof e === 'string' ? e : [e.message, e.description].filter(Boolean).join(': ') || 'Unknown error').slice(0, 500);\n};\nconst r = $('Route').first().json;\nconst steps = r.platform === 'Bluesky'\n  ? ['Bluesky session (engage)', 'Get target post', 'Build Bluesky action', 'Bluesky create (engage)']\n  : ['Mastodon action'];\nconst what = r.action === 'like' ? 'like' : 'reply';\nconst err = steps.filter(ran).map((n) => errorText(out(n))).find(Boolean);\nif (err) return [{ json: { summary: `${r.platform} ${what}: FAILED: ${err}` } }];\nlet link = '';\nif (what === 'reply' && r.platform === 'Bluesky') {\n  const uri = (out('Bluesky create (engage)') || {}).uri || '';\n  const handle = (out('Bluesky session (engage)') || {}).handle;\n  if (uri && handle) link = ` https://bsky.app/profile/${handle}/post/${uri.split('/').pop()}`;\n}\nif (what === 'reply' && r.platform === 'Mastodon' && (out('Mastodon action') || {}).url) link = ` ${out('Mastodon action').url}`;\nreturn [{ json: { summary: `${what === 'like' ? 'Liked' : 'Replied'} on ${r.platform}.${link}` } }];\n"
+      },
+      "name": "Engage result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "3ab4fe11-667e-4572-8fce-1ef1777cbd7e",
+      "position": [
+        2640,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Route').first().json.chat_id }}",
+        "text": "={{ $json.summary }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Route').first().json.preview_id }}"
+        }
+      },
+      "name": "Send engage result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "5997e593-fb7c-4322-ac05-b63e512734d5",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "e0ea982d-de59-4070-9ff9-7ae835675811",
+      "position": [
+        2860,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "db12efe5-ee30-474c-a81f-bd218506fc23",
+              "leftValue": "={{ $json.query_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Button?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "id": "d0de61f2-d4c4-4817-baba-6e344a5d1526",
+      "position": [
+        1320,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.query_id }}",
+        "additionalFields": {
+          "text": "={{ $json.text.slice(0, 190) }}"
+        }
+      },
+      "name": "Answer button",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "9c84d54b-ecd0-4808-a399-2189ad8a9077",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "8e6ed13a-7ea6-4b35-911a-d43c9e0f559b",
+      "position": [
+        1540,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Route').first().json.chat_id }}",
+        "text": "={{ $('Route').first().json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "reply_to_message_id": "={{ $('Route').first().json.reply_to }}"
+        }
+      },
+      "name": "Send reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "webhookId": "8615a4c2-28d3-42ec-b3db-24c7ef7cd7d0",
+      "credentials": {
+        "telegramApi": {
+          "name": "Telegram quick-post"
+        }
+      },
+      "id": "4e837d30-d53f-4a1d-8209-fbf7043fad8d",
+      "position": [
+        1760,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Quick post and replies\nThe quick-post bot's only trigger: every message and button tap for the bot lands here.\n- New text > preview with Post / Cancel > LinkedIn, Bluesky, Mastodon > result in the chat. 300 characters max (Bluesky). The first https link gets a link card.\n- Reply to a Bluesky or Mastodon notification (from `engagement`) > preview with Send reply / Cancel > reply on that platform. Like button on notifications.\nOnly the owner's Telegram user ID is accepted. Each button works once.",
+        "height": 240,
+        "width": 700,
+        "color": 5
+      },
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "id": "3f52b5eb-7a2f-405d-9a7d-e1ea287b1a2c",
+      "position": [
+        0,
+        -40
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On Telegram message": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft?": {
+      "main": [
+        [
+          {
+            "node": "Send preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply draft?": {
+      "main": [
+        [
+          {
+            "node": "Send reply preview",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post?": {
+      "main": [
+        [
+          {
+            "node": "Answer: posting",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply or like?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer: posting": {
+      "main": [
+        [
+          {
+            "node": "Has link?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has link?": {
+      "main": [
+        [
+          {
+            "node": "Fetch page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Link card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch page": {
+      "main": [
+        [
+          {
+            "node": "Link card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link card": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn link?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn link?": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn (link)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to LinkedIn (text)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (link)": {
+      "main": [
+        [
+          {
+            "node": "Bluesky session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn (text)": {
+      "main": [
+        [
+          {
+            "node": "Bluesky session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky session": {
+      "main": [
+        [
+          {
+            "node": "Build Bluesky post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bluesky post": {
+      "main": [
+        [
+          {
+            "node": "Post to Bluesky",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Bluesky": {
+      "main": [
+        [
+          {
+            "node": "Post to Mastodon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Mastodon": {
+      "main": [
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report": {
+      "main": [
+        [
+          {
+            "node": "Send result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply or like?": {
+      "main": [
+        [
+          {
+            "node": "Answer: sending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Button?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer: sending": {
+      "main": [
+        [
+          {
+            "node": "On Bluesky?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On Bluesky?": {
+      "main": [
+        [
+          {
+            "node": "Bluesky session (engage)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mastodon action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky session (engage)": {
+      "main": [
+        [
+          {
+            "node": "Get target post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get target post": {
+      "main": [
+        [
+          {
+            "node": "Build Bluesky action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bluesky action": {
+      "main": [
+        [
+          {
+            "node": "Bluesky create (engage)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky create (engage)": {
+      "main": [
+        [
+          {
+            "node": "Engage result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mastodon action": {
+      "main": [
+        [
+          {
+            "node": "Engage result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Engage result": {
+      "main": [
+        [
+          {
+            "node": "Send engage result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Button?": {
+      "main": [
+        [
+          {
+            "node": "Answer button",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer button": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "errorWorkflow": "DuEIlMGzLbThD3UP",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 900
+  },
+  "tags": []
+}

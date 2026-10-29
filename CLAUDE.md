@@ -82,6 +82,8 @@ all-maker-context/
     mcp-server.json      (MCP Server Trigger, bearer auth, two tools)
     mcp-tools.json       (tool logic: search_evidence, get_document)
     cross-post.json
+    quick-post.json      (quick-post bot trigger: new posts, replies, likes)
+    engagement.json      (Bluesky + Mastodon notifications > Telegram topics)
   scripts/
     server-setup.sh
     backup.sh
@@ -196,6 +198,17 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 1. [DONE 2026-10-29] [CLAUDE] `README.md`: purpose, architecture diagram, setup summary, links to ADRs. Plus `docs/architecture.md`.
 2. [DONE 2026-10-29] [CLAUDE] ADRs in `docs/decisions/` (0001 to 0004).
+
+### Phase 8: Quick posting and engagement
+
+One interactive Telegram bot (`Telegram quick-post`) in a private group `all-maker social` with Topics: Compose, Bluesky, Mastodon. The approvals bot stays outbound only. Telegram allows one webhook per bot, so every inbound message for the quick-post bot goes through the trigger in `quick-post`.
+
+1. [DONE 2026-10-29] [CLAUDE] `quick-post`: a text in Compose > preview with Post / Cancel > LinkedIn, Bluesky, Mastodon > result in the chat. One text, 300 characters max (Bluesky; links count in short form). First https link gets a link card. Failures are reported in Telegram, not the review queue: nothing to fix in the IDE. Published as `quick-post`; repo file is the import source.
+2. [DONE 2026-10-29] [CLAUDE] `engagement`: every 10 minutes, new Bluesky replies/mentions/quotes and Mastodon mentions > one message each in the platform's topic, with a Like button. A swipe-reply in Telegram > preview > reply on that platform, handled in `quick-post`. No storage: each notification carries its target in its "Open on ..." link. Published as `engagement`; repo file is the import source.
+3. [DONE 2026-10-29] [OWNER] Bot @AllMakerPostBot, group, new Mastodon token, Bluesky app password, import, publish. Tested: `/start`, `/ids`, Cancel, second tap refused, engagement run with no new notifications.
+6. [OWNER] Remaining tests: a reply from another account reaches its topic and a Telegram reply posts back; first real post from Compose. Then export both workflows from n8n and replace the files in `workflows/`.
+4. [DROPPED] Media upload. Posts are text and links; screenshots are added by hand on the platform.
+5. LinkedIn engagement excluded: reading comments needs `r_member_social`, which LinkedIn does not grant to new apps.
 
 ## 9. Open items
 

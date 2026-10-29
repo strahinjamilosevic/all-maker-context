@@ -33,6 +33,8 @@ Only Caddy publishes ports. n8n credentials are encrypted with `N8N_ENCRYPTION_K
 | `mcp-server` | MCP client request | Expose `search_evidence` and `get_document` |
 | `mcp-tools` | called by `mcp-server` | Tool logic |
 | `cross-post` | new file under `blog/` on all-maker `master`; manual | Post to LinkedIn, Bluesky, Mastodon after approval |
+| `quick-post` | message or button tap to the quick-post Telegram bot | Post a text to LinkedIn, Bluesky, Mastodon; send replies and likes |
+| `engagement` | every 10 minutes | Forward Bluesky and Mastodon replies and mentions to Telegram topics |
 | `error-alert` | failure in another workflow | Telegram alert with workflow, node, error, execution link |
 
 ## Ingest
