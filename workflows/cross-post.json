@@ -1,0 +1,1154 @@
+{
+  "name": "cross-post",
+  "nodes": [
+    {
+      "parameters": {
+        "owner": {
+          "__rl": true,
+          "value": "strahinjamilosevic",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "all-maker",
+          "mode": "name"
+        },
+        "events": [
+          "push"
+        ],
+        "options": {}
+      },
+      "id": "6e9d2e12-6fe5-448b-8ea2-9ea295c92d98",
+      "name": "On push: all-maker",
+      "type": "n8n-nodes-base.githubTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        464
+      ],
+      "webhookId": "d1fcbb00-cd29-4be1-adc2-28c321c37e83",
+      "credentials": {
+        "githubApi": {
+          "id": "nAvjTqebU2GYUngj",
+          "name": "GitHub sources (read)"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "a7481bf0-2131-40ab-9f17-1b352a2cfb2a",
+      "name": "Run for one post",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9d767c6c-6294-4a5d-a244-15433c00b3be",
+              "name": "path",
+              "value": "blog/2026-10-12-coding-is-harder.md",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "928282bc-7dce-4dd8-8e25-20c935e09d5a",
+      "name": "Post path",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        272,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One run = one new blog post. A push that adds several posts handles the first; run the others manually.\nconst input = $input.first().json;\nlet paths = [];\nlet manual = false;\nif (input.body) {\n  const body = input.body;\n  if (body.ref !== 'refs/heads/master' || body.deleted) return [];\n  const added = new Set();\n  for (const commit of body.commits || []) {\n    for (const p of commit.added || []) added.add(p);\n    for (const p of commit.removed || []) added.delete(p);\n  }\n  paths = [...added].filter((p) => /^blog\\/.+\\.mdx?$/.test(p)).sort();\n} else {\n  manual = true;\n  paths = [String(input.path || '').trim()].filter(Boolean);\n}\nif (!paths.length) return [];\nreturn [{ json: { path: paths[0], others: paths.slice(1), manual } }];\n"
+      },
+      "id": "28edc72e-0457-42a9-9111-e9ba78eb8d77",
+      "name": "Find new post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/strahinjamilosevic/all-maker/contents/{{ encodeURI($json.path) }}?ref=master",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "41d60b37-7cb9-46b3-bda8-56e8f40fb6fa",
+      "name": "Get post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        464
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "nAvjTqebU2GYUngj",
+          "name": "GitHub sources (read)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Read the post, build its public URL, and turn the one social text into a post per platform.\nconst YAML = require('yaml');\nconst f = $('Find new post').first().json;\nconst raw = $json.data;\nif (typeof raw !== 'string') throw new Error(`Could not fetch ${f.path} from GitHub.`);\nconst m = raw.match(/^---\\r?\\n([\\s\\S]*?)\\r?\\n---/);\nconst fm = m ? YAML.parse(m[1]) || {} : {};\nif (fm.draft === true || fm.unlisted === true) return [];\n\nconst file = f.path.split('/').pop().replace(/\\.mdx?$/, '');\nconst dated = file.match(/^(\\d{4})-(\\d{2})-(\\d{2})-(.+)$/);\nconst url = fm.slug\n  ? `https://all-maker.com/blog/${String(fm.slug).replace(/^\\//, '')}`\n  : dated ? `https://all-maker.com/blog/${dated[1]}/${dated[2]}/${dated[3]}/${dated[4]}` : `https://all-maker.com/blog/${file}`;\nconst title = fm.title || file;\nconst social = typeof (fm.context || {}).social === 'string' ? fm.context.social.trim() : '';\n\n// One text for every platform, sized for the strictest limit: Bluesky, 300 characters with the closing line.\n// Bluesky links the title, LinkedIn shows a link card, Mastodon needs the URL in the text.\nconst graphemes = (s) => (typeof Intl !== 'undefined' && Intl.Segmenter)\n  ? [...new Intl.Segmenter('en', { granularity: 'grapheme' }).segment(s)].length : [...s].length;\nconst closing = `\\n\\nFull post: ${title}`;\nconst budget = 300 - graphemes(closing);\nconst drafts = {};\nconst problems = [];\nif (social && graphemes(social) > budget) {\n  problems.push(`\\`context.social\\` has ${graphemes(social)} characters. With this title the limit is ${budget}. Shorten it by ${graphemes(social) - budget}. Nothing was posted.`);\n} else if (social) {\n  drafts.linkedin = social + closing;\n  drafts.bluesky = social + closing;\n  drafts.mastodon = social + closing + `\\n${url}`;\n}\n\nreturn [{ json: {\n  path: f.path, others: f.others, manual: f.manual, title, description: fm.description || '', url,\n  github_url: `https://github.com/strahinjamilosevic/all-maker/blob/master/${f.path}`,\n  hn_url: `https://news.ycombinator.com/submitlink?u=${encodeURIComponent(url)}&t=${encodeURIComponent(title)}`,\n  drafts, problems, has_drafts: Object.keys(drafts).length > 0,\n} }];\n"
+      },
+      "id": "bd679b08-aee7-4f50-af7a-28e40b4f58dd",
+      "name": "Prepare post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cecf1ba4-8240-44a7-ab85-f6be572c5835",
+              "leftValue": "={{ $json.has_drafts }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c9c35ef1-bb81-4b48-9b4a-3ebb17f0adb3",
+      "name": "Has drafts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/strahinjamilosevic/all-maker-context/issues",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'Cross-post: ' + $('Prepare post').first().json.path, body: '<!-- cross_post: ' + $('Prepare post').first().json.path + ' -->\\n**Post:** [`' + $('Prepare post').first().json.path + '`](' + $('Prepare post').first().json.github_url + ')\\n**Live page:** ' + $('Prepare post').first().json.url + '\\n\\n' + 'No usable `social` drafts. Nothing was posted.\\n\\n' + $('Prepare post').first().json.problems.map((x) => '- [ ] ' + x).join('\\n') + '\\n\\nAdd `context.social` drafts, then run the cross-post workflow manually with this path.', labels: ['review-queue'] }) }}",
+        "options": {}
+      },
+      "id": "511570f5-3de3-4842-90d0-b44ded75d1d6",
+      "name": "Issue: no drafts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        672
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "CvdfdOCI8lpQ5tcd",
+          "name": "GitHub review queue"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.manual ? 1 : 600 }}"
+      },
+      "id": "b29317f8-5f25-4af9-ad73-7ddd6947d50f",
+      "name": "Wait for deploy",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        368
+      ],
+      "webhookId": "222bb24a-df9a-4a69-b3a5-19723e8b37cb"
+    },
+    {
+      "parameters": {
+        "chatId": "8199050777",
+        "text": "=New post: {{ $('Prepare post').first().json.title }}\n{{ $('Prepare post').first().json.url }}\n\nHacker News (manual): {{ $('Prepare post').first().json.hn_url }}\n\nApprove each platform in the next messages.{{ $('Prepare post').first().json.others.length ? '\\n\\nAlso added in this push, not handled: ' + $('Prepare post').first().json.others.join(', ') + '. Run the workflow manually for each.' : '' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0c966029-8d95-4231-bdf7-4ad3ad813c28",
+      "name": "Announce post",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1584,
+        368
+      ],
+      "webhookId": "d8e34176-01a7-45d3-a64b-d643ea815c08",
+      "credentials": {
+        "telegramApi": {
+          "id": "QlpgGhqWzWnvwTqd",
+          "name": "Telegram approvals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5ef00e87-06d7-4fe2-be38-df86ea56665b",
+              "leftValue": "={{ $('Prepare post').first().json.drafts.linkedin || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8b336bba-b018-4adc-8075-9d6394c8104e",
+      "name": "LinkedIn draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1808,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "8199050777",
+        "message": "=LinkedIn draft:\n\n{{ $('Prepare post').first().json.drafts.linkedin }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Post to LinkedIn",
+            "disapproveLabel": "Skip"
+          }
+        },
+        "chatApproval": true,
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 3,
+              "resumeUnit": "days"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "0373be02-11ea-469f-be2f-c9fa42250d49",
+      "name": "Approve LinkedIn",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2032,
+        272
+      ],
+      "webhookId": "5bfbb51f-edb5-4e9c-99c5-1c547e5bda59",
+      "credentials": {
+        "telegramApi": {
+          "id": "QlpgGhqWzWnvwTqd",
+          "name": "Telegram approvals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "96c26888-1e65-49ce-839d-568c6556c8a4",
+              "leftValue": "={{ $json.data?.approved === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c42a0e57-6289-4863-8033-4af3c57086a5",
+      "name": "LinkedIn approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "person": "6HPs8KbNbH",
+        "text": "={{ $('Prepare post').first().json.drafts.linkedin }}",
+        "shareMediaCategory": "ARTICLE",
+        "additionalFields": {
+          "description": "={{ $('Prepare post').first().json.description }}",
+          "originalUrl": "={{ $('Prepare post').first().json.url }}",
+          "title": "={{ $('Prepare post').first().json.title }}"
+        }
+      },
+      "id": "f80539e8-deee-451a-a6fb-8abd95abbfd3",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        160
+      ],
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "pqETWnEtAEUXoeCK",
+          "name": "LinkedIn"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fa5ab64f-1a9a-4ffe-a9f0-656eb0d84312",
+              "leftValue": "={{ $('Prepare post').first().json.drafts.bluesky || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "03923908-c442-4d75-b58c-c81b4ebdb472",
+      "name": "Bluesky draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2688,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "8199050777",
+        "message": "=Bluesky draft:\n\n{{ $('Prepare post').first().json.drafts.bluesky }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Post to Bluesky",
+            "disapproveLabel": "Skip"
+          }
+        },
+        "chatApproval": true,
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 3,
+              "resumeUnit": "days"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "afa0681e-191f-4a94-9ad9-066ab48e44c4",
+      "name": "Approve Bluesky",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2912,
+        272
+      ],
+      "webhookId": "85226d80-f693-464c-93e0-d7b19bf03c0f",
+      "credentials": {
+        "telegramApi": {
+          "id": "QlpgGhqWzWnvwTqd",
+          "name": "Telegram approvals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "db10db77-fb96-4e32-8cb5-35e77d6a41a3",
+              "leftValue": "={{ $json.data?.approved === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "94af83a6-56be-4c8e-920e-97eaa453d1df",
+      "name": "Bluesky approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3120,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.server.createSession",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": {}
+      },
+      "id": "a8452763-64a8-4424-9b38-ea584f00fc6a",
+      "name": "Bluesky session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3344,
+        160
+      ],
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "RpA6i2EoPwESw3fm",
+          "name": "Bluesky app password"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Bluesky record: the title in the closing line links to the post, other URLs are clickable, plus a link card.\nconst p = $('Prepare post').first().json;\nconst s = $('Bluesky session').first().json;\nconst text = p.drafts.bluesky;\nconst bytes = (str) => encodeURIComponent(str).replace(/%[0-9A-F]{2}/g, 'x').length;\nconst facets = [];\nfor (const m of text.matchAll(/https?:\\/\\/[^\\s<>\"')\\]]+/g)) {\n  const uri = m[0].replace(/[.,;:!?]+$/, '');\n  const byteStart = bytes(text.slice(0, m.index));\n  facets.push({ index: { byteStart, byteEnd: byteStart + bytes(uri) }, features: [{ $type: 'app.bsky.richtext.facet#link', uri }] });\n}\nconst titleEnd = bytes(text);\nfacets.push({ index: { byteStart: titleEnd - bytes(p.title), byteEnd: titleEnd }, features: [{ $type: 'app.bsky.richtext.facet#link', uri: p.url }] });\nreturn [{ json: {\n  repo: s.did,\n  collection: 'app.bsky.feed.post',\n  record: {\n    $type: 'app.bsky.feed.post',\n    text,\n    createdAt: new Date().toISOString(),\n    langs: ['en'],\n    facets,\n    embed: { $type: 'app.bsky.embed.external', external: { uri: p.url, title: p.title, description: p.description } },\n  },\n} }];\n"
+      },
+      "id": "66f7913e-a3c8-47f6-9123-0d74d329d2f9",
+      "name": "Build Bluesky post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://bsky.social/xrpc/com.atproto.repo.createRecord",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Bluesky session').first().json.accessJwt }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "b816b8fb-aac2-4648-a9be-1b0d092fea80",
+      "name": "Post to Bluesky",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3792,
+        160
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "adf7ba17-f68d-4bc6-9700-d4380ee4c425",
+              "leftValue": "={{ $('Prepare post').first().json.drafts.mastodon || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2568a8d-2c5e-4667-b5fa-338d6f6980c6",
+      "name": "Mastodon draft?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4000,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "8199050777",
+        "message": "=Mastodon draft:\n\n{{ $('Prepare post').first().json.drafts.mastodon }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "Post to Mastodon",
+            "disapproveLabel": "Skip"
+          }
+        },
+        "chatApproval": true,
+        "options": {
+          "limitWaitTime": {
+            "values": {
+              "resumeAmount": 3,
+              "resumeUnit": "days"
+            }
+          },
+          "appendAttribution": false
+        }
+      },
+      "id": "fc982f83-704d-4f1d-bf7e-6bb3397522de",
+      "name": "Approve Mastodon",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4224,
+        272
+      ],
+      "webhookId": "fcb0a1ce-0a36-45f5-8866-9c76f210afd0",
+      "credentials": {
+        "telegramApi": {
+          "id": "QlpgGhqWzWnvwTqd",
+          "name": "Telegram approvals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c9757c27-2079-404b-b5f9-69aab053b3a9",
+              "leftValue": "={{ $json.data?.approved === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3b355998-209a-4e9b-96ee-6a57d6e59c49",
+      "name": "Mastodon approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4448,
+        272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://mastodon.social/api/v1/statuses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ 'cross-post:' + $('Prepare post').first().json.path }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $('Prepare post').first().json.drafts.mastodon, visibility: 'public', language: 'en' }) }}",
+        "options": {}
+      },
+      "id": "b6815fee-b17a-4e74-a216-7d066a411f8e",
+      "name": "Post to Mastodon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4672,
+        160
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eMhcIaJVn1XzYNMN",
+          "name": "Mastodon token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect the outcome per platform. Error text is limited to message and description: the Issue is public.\nconst p = $('Prepare post').first().json;\nconst ran = (n) => { try { return $(n).isExecuted; } catch (e) { return false; } };\nconst out = (n) => (ran(n) ? $(n).first().json : null);\nconst errorText = (j) => {\n  if (!j || !j.error) return null;\n  const e = j.error;\n  return (typeof e === 'string' ? e : [e.message, e.description].filter(Boolean).join(': ') || 'Unknown error').slice(0, 500);\n};\nconst PLATFORMS = [\n  { key: 'linkedin', name: 'LinkedIn', approve: 'Approve LinkedIn', steps: ['Post to LinkedIn'] },\n  { key: 'bluesky', name: 'Bluesky', approve: 'Approve Bluesky', steps: ['Bluesky session', 'Post to Bluesky'] },\n  { key: 'mastodon', name: 'Mastodon', approve: 'Approve Mastodon', steps: ['Post to Mastodon'] },\n];\nconst lines = [];\nconst failures = [...p.problems];\nfor (const pl of PLATFORMS) {\n  if (!p.drafts[pl.key]) { lines.push(`${pl.name}: skipped, no draft`); continue; }\n  if (!(out(pl.approve) || {}).data?.approved) { lines.push(`${pl.name}: not approved`); continue; }\n  const err = pl.steps.map((n) => errorText(out(n))).find(Boolean);\n  if (err) { lines.push(`${pl.name}: FAILED`); failures.push(`${pl.name}: ${err}`); continue; }\n  let link = '';\n  if (pl.key === 'bluesky') {\n    const uri = (out('Post to Bluesky') || {}).uri || '';\n    const handle = (out('Bluesky session') || {}).handle;\n    if (uri && handle) link = ` https://bsky.app/profile/${handle}/post/${uri.split('/').pop()}`;\n  }\n  if (pl.key === 'mastodon' && (out('Post to Mastodon') || {}).url) link = ` ${out('Post to Mastodon').url}`;\n  lines.push(`${pl.name}: posted${link}`);\n}\nreturn [{ json: { summary: lines.join('\\n'), failures, has_failures: failures.length > 0 } }];\n"
+      },
+      "id": "d4fea14d-c4cb-4b76-84f2-7e2894a90f98",
+      "name": "Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4880,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "8199050777",
+        "text": "=Cross-post result: {{ $('Prepare post').first().json.title }}\n\n{{ $('Report').first().json.summary }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "8c19f2d0-5d02-4084-ad1b-e140f8d696fd",
+      "name": "Send result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        5104,
+        368
+      ],
+      "webhookId": "5d9f3751-7747-4a81-a0db-f82e47255e0d",
+      "credentials": {
+        "telegramApi": {
+          "id": "QlpgGhqWzWnvwTqd",
+          "name": "Telegram approvals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "44244c64-dd2b-4167-8b64-ba9dad57a221",
+              "leftValue": "={{ $('Report').first().json.has_failures }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9a1edca3-a993-4d2a-b1a1-c7abd008b3a3",
+      "name": "Failures?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5328,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/strahinjamilosevic/all-maker-context/issues",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: 'Cross-post: ' + $('Prepare post').first().json.path, body: '<!-- cross_post: ' + $('Prepare post').first().json.path + ' -->\\n**Post:** [`' + $('Prepare post').first().json.path + '`](' + $('Prepare post').first().json.github_url + ')\\n**Live page:** ' + $('Prepare post').first().json.url + '\\n\\n' + 'Cross-posting did not complete.\\n\\n' + $('Report').first().json.failures.map((x) => '- [ ] ' + x).join('\\n') + '\\n\\nFix the cause, then post the remaining platforms by hand or run the workflow manually and skip the platforms already posted.', labels: ['review-queue'] }) }}",
+        "options": {}
+      },
+      "id": "227a264e-2ea2-4116-94e9-c5782cf3399d",
+      "name": "Issue: posting failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5552,
+        272
+      ],
+      "credentials": {
+        "githubApi": {
+          "id": "CvdfdOCI8lpQ5tcd",
+          "name": "GitHub review queue"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Cross-post\nNew post under `blog/` on master > wait for the site deploy > Telegram approval per platform > post.\nDrafts come from `context.social` in the post frontmatter. No drafts or a failed platform: review-queue Issue.\nManual run: set the path in **Post path**, then **Execute workflow**.",
+        "height": 200,
+        "width": 560,
+        "color": 5
+      },
+      "id": "9cf0e487-b7e2-4f9b-beba-9e9acdbe4f62",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On push: all-maker": {
+      "main": [
+        [
+          {
+            "node": "Find new post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run for one post": {
+      "main": [
+        [
+          {
+            "node": "Post path",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post path": {
+      "main": [
+        [
+          {
+            "node": "Find new post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find new post": {
+      "main": [
+        [
+          {
+            "node": "Get post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get post": {
+      "main": [
+        [
+          {
+            "node": "Prepare post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare post": {
+      "main": [
+        [
+          {
+            "node": "Has drafts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has drafts?": {
+      "main": [
+        [
+          {
+            "node": "Wait for deploy",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Issue: no drafts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for deploy": {
+      "main": [
+        [
+          {
+            "node": "Announce post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Announce post": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn draft?": {
+      "main": [
+        [
+          {
+            "node": "Approve LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bluesky draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn approved?": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bluesky draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Bluesky draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky draft?": {
+      "main": [
+        [
+          {
+            "node": "Approve Bluesky",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mastodon draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Bluesky": {
+      "main": [
+        [
+          {
+            "node": "Bluesky approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky approved?": {
+      "main": [
+        [
+          {
+            "node": "Bluesky session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mastodon draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bluesky session": {
+      "main": [
+        [
+          {
+            "node": "Build Bluesky post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Bluesky post": {
+      "main": [
+        [
+          {
+            "node": "Post to Bluesky",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Bluesky": {
+      "main": [
+        [
+          {
+            "node": "Mastodon draft?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mastodon draft?": {
+      "main": [
+        [
+          {
+            "node": "Approve Mastodon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approve Mastodon": {
+      "main": [
+        [
+          {
+            "node": "Mastodon approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mastodon approved?": {
+      "main": [
+        [
+          {
+            "node": "Post to Mastodon",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Mastodon": {
+      "main": [
+        [
+          {
+            "node": "Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report": {
+      "main": [
+        [
+          {
+            "node": "Send result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send result": {
+      "main": [
+        [
+          {
+            "node": "Failures?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failures?": {
+      "main": [
+        [
+          {
+            "node": "Issue: posting failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "DuEIlMGzLbThD3UP",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "b0f31cc7-5d62-4185-8d9c-959406ebdd50",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e6197562f9294abd3307ac693165c2da8dfbb44f0a091155abcfc02bb591e42f"
+  },
+  "nodeGroups": [],
+  "id": "sKJBFBHUyMgSBU4G",
+  "tags": []
+}

@@ -54,9 +54,9 @@ GitHub (3 repos) --push webhook--> n8n
                                      |
                          Claude Code / Claude Desktop / other agents
 
-all-maker merge to master --> social drafts from post frontmatter --> Telegram approval --> LinkedIn / Bluesky / Mastodon
+all-maker merge to master --> social text from post frontmatter --> Telegram approval --> LinkedIn / Bluesky / Mastodon
 
-Claude Code (IDE, subscription) --> writes content + tags + social drafts --> fixes review-queue Issues
+Claude Code (IDE, subscription) --> writes content + tags + social text --> fixes review-queue Issues
 ```
 
 Hosting: one Hetzner Cloud VPS, Ubuntu 26.04 LTS, Docker Compose running n8n, Qdrant, Caddy (auto HTTPS). Public hostname: `n8n.all-maker.com`. Qdrant never exposed publicly.
@@ -181,16 +181,16 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 ### Phase 6: Cross-posting
 
-1. `cross-post`: GitHub Trigger on push to master in all-maker (default branch is master), filter to new files under `blog/` > fetch post > read `social` drafts from frontmatter > Telegram "send and wait" with one approve/reject choice per platform and a prefilled Hacker News submit link (`https://news.ycombinator.com/submitlink?u=<url>&t=<title>`) > post to each approved platform. No drafts: open a `review-queue` Issue instead. One platform failing does not block the others; failures open a `review-queue` Issue.
-2. Drafts are written in Claude Code with the post (short declaratives, link to post, no emojis, no hashtag spam). A platform left out of `social` is skipped:
+1. [DONE 2026-10-29] `cross-post`: GitHub Trigger on push to master in all-maker (default branch is master), filter to new files under `blog/` > wait 10 minutes for the deploy > fetch post > read `context.social` > Telegram message with the post link and a prefilled Hacker News submit link (`https://news.ycombinator.com/submitlink?u=<url>&t=<title>`) > Telegram "send and wait" approve/skip per platform > post to each approved platform. Manual trigger for one post by path. No text or text over the limit: open a `review-queue` Issue instead. One platform failing does not block the others; failures open a `review-queue` Issue.
+2. One social text per post, written with the post (short declaratives, no link, no emojis, no hashtags), used on every platform. The workflow appends `Full post: <title>`: linked title on Bluesky, link card on LinkedIn, URL on the next line on Mastodon. Text plus closing line must fit Bluesky's 300 characters:
    ```yaml
-   social:
-     linkedin: "..."   # long form
-     bluesky: "..."    # max 300 characters
-     mastodon: "..."   # max 500 characters
+   context:
+     social: "The hook."
    ```
 3. Platforms: LinkedIn, Bluesky, Mastodon automated. Hacker News and Reddit manual only (no API / self-promotion rules). X skipped (paid API).
-4. Requires the tokens from Phase 1 steps 5 and 6. Bluesky and Mastodon can go live before LinkedIn.
+4. [DONE 2026-10-29] [OWNER] Tokens and n8n credentials: `LinkedIn` (OAuth2, app linked to the all-maker Page, posts as the owner's profile), `Bluesky app password`, `Mastodon token` (mastodon.social).
+5. [DONE 2026-10-29] Tested: no-text path opens an Issue; Skip on all platforms posts nothing and reports "not approved". Workflow published and exported to `workflows/cross-post.json`.
+6. [OWNER] First real post, after the social profiles are updated: add `context.social` to `blog/2026-10-12-coding-is-harder.md` in all-maker, run `cross-post` manually for that path, approve Bluesky first.
 
 ### Phase 7: Documentation
 
@@ -201,4 +201,4 @@ Build in the n8n UI with Claude Code giving node-by-node instructions; export ea
 
 - None.
 
-Resolved 2026-10-19: source repos confirmed (`all-maker`, `strahinjamilosevic`, `career`). Ingestion scope and exclusions are defined in `taxonomy/schema.yaml` under `sources`. Only credentials are treated as sensitive; `profile/application_answers.yaml` is excluded at the owner's request. The `context:` key passes `mint validate` (Mintlify CLI 4.2.985) and `npm run build` (Docusaurus). Docusaurus copies frontmatter into public JS bundles: `context` fields and `social` drafts are readable on all-maker.com, not rendered. Nothing sensitive goes in frontmatter.
+Resolved 2026-10-19: source repos confirmed (`all-maker`, `strahinjamilosevic`, `career`). Ingestion scope and exclusions are defined in `taxonomy/schema.yaml` under `sources`. Only credentials are treated as sensitive; `profile/application_answers.yaml` is excluded at the owner's request. The `context:` key passes `mint validate` (Mintlify CLI 4.2.985) and `npm run build` (Docusaurus). Docusaurus copies frontmatter into public JS bundles: `context` fields and `social` text are readable on all-maker.com, not rendered. Nothing sensitive goes in frontmatter.

@@ -15,7 +15,7 @@ All commands run on the server as `deploy`, in `~/all-maker-context`, unless sta
 
 ## AI models
 
-No paid AI API is used. Tags and LinkedIn drafts are written in the source repos with Claude Code. Ollama runs the embedding model on this server; no external account, no per-use cost.
+No paid AI API is used. Tags and social text are written in the source repos with Claude Code. Ollama runs the embedding model on this server; no external account, no per-use cost.
 
 Pull the embedding model once after the first `docker compose up -d`:
 
@@ -35,6 +35,9 @@ The model lives in the `ollama_models` volume and survives restarts. Changing th
 | `N8N_ENCRYPTION_KEY` | `.env` + password manager | never rotate without a migration plan |
 | `QDRANT_API_KEY` | `.env` + n8n credential | none |
 | MCP bearer token | n8n credential `MCP bearer token` + password manager + `ALL_MAKER_MCP_TOKEN` on clients | none; rotate if leaked |
+| Bluesky app password `n8n-cross-post` | n8n credential `Bluesky app password` | none; revoke in Bluesky if leaked |
+| LinkedIn app `all-maker-context` (Client ID, Client Secret) | n8n credential `LinkedIn` + password manager | access token after 60 days: reconnect |
+| Mastodon access token (app `all-maker-context`, scope `write:statuses`) | n8n credential `Mastodon token` + password manager | none; revoke in Mastodon if leaked |
 
 ## Rotate the GitHub tokens
 
@@ -57,6 +60,17 @@ Endpoint: `https://n8n.all-maker.com/mcp/all-maker-context`. Workflows `mcp-serv
 Auth: bearer token in n8n credential `MCP bearer token` and in the password manager. Clients read it from the environment variable `ALL_MAKER_MCP_TOKEN`; `.mcp.json` in this repo references the variable, never the value.
 
 Rotate the token: generate a new one (`openssl rand -hex 32`), update the n8n credential, update `ALL_MAKER_MCP_TOKEN` on each client machine, restart the clients.
+
+## Cross-posting
+
+Workflow `cross-post` (`workflows/cross-post.json`). Trigger: a push to `master` in all-maker that adds a file under `blog/`. It waits 10 minutes for the site deploy, sends the post link and a Hacker News submit link to Telegram, then asks for approval per platform. The text comes from `context.social` in the post frontmatter: one string, used on every platform, with `Full post: <title>` appended. No text, a text over Bluesky's limit, or a failed post opens a `review-queue` Issue.
+
+Platforms: LinkedIn, Bluesky, Mastodon (@strahinjamilosevic@mastodon.social). Approvals expire after 3 days; an expired approval counts as Skip.
+Post one specific post by hand: open `cross-post`, set the path in **Post path** (for example `blog/2026-10-12-coding-is-harder.md`), click the orange **Execute workflow** button next to the **Run for one post** node. The small play icon in the node's hover toolbar runs that node only. A push that adds several posts handles the first; the Telegram message names the others.
+
+Do not set a Timeout Workflow on `cross-post`: it waits for approvals.
+
+Reconnect LinkedIn: the access token expires after 60 days and n8n cannot refresh it. Posts then fail with an authorization error and an Issue opens. n8n > Credentials > `LinkedIn` > **Reconnect**, sign in, save.
 
 ## Daily operations
 

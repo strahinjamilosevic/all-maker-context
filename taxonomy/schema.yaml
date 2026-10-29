@@ -207,15 +207,12 @@ fields:
     required: false
     type: string_or_list
 
-  # Blog posts only. Drafts for the cross-post workflow. A missing platform is skipped.
+  # Blog posts only. One text for LinkedIn, Bluesky, and Mastodon. The cross-post workflow
+  # appends "Full post: <title>"; text plus that line must fit Bluesky's 300 characters.
   social:
     required: false
     applies_to: [blog_post]
-    type: object
-    keys:
-      linkedin: {max_length: 3000}
-      bluesky: {max_length: 300}
-      mastodon: {max_length: 500}
+    type: string
 
 # ---------------------------------------------------------------------------
 # Rules beyond single fields

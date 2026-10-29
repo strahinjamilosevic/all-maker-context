@@ -41,7 +41,7 @@ Docusaurus `tags` and `context.tags` are separate. The first builds site pages. 
 | `tools` | no, not on blog posts | up to 12 | Tools the content uses or discusses. Blog posts carry ideas, not tool inventories. |
 | `tags` | crafting only | `crafting` + `metalworking`, `leatherworking`, or `cooking` | One craft per page. Overview pages list every craft they cover. |
 | `canonical` | for restatements | `<source>:<path>`, or a list | Points to the authoritative copy, or copies. |
-| `social` | no, blog posts only | `linkedin`, `bluesky`, `mastodon` | Cross-post drafts. |
+| `social` | no, blog posts only | one string | Cross-post text, used on every platform. |
 
 ## Content types
 
@@ -67,13 +67,18 @@ context:
   content_type: blog_post
   domain: [technical_writing]
   status: published
-  social:
-    linkedin: "Two to four short sentences. What the post argues. Link: https://all-maker.com/<slug>"
-    bluesky: "One or two sentences, under 300 characters, with the link."
-    mastodon: "Two or three sentences, under 500 characters, with the link."
+  social: "One to three short sentences. The hook."
 ```
 
-Social drafts: short declaratives, a link to the post, no emojis, no hashtag lists.
+Social text: one hook for LinkedIn, Bluesky, and Mastodon. Short declaratives. No link, no emojis, no hashtag lists. The cross-post workflow appends:
+
+```
+Full post: <post title>
+```
+
+On Bluesky the title links to the post. LinkedIn shows a link card under the post. Mastodon gets the URL on the next line.
+
+Length: Bluesky is the strictest platform. The hook plus the closing line must fit 300 characters, so the hook gets 287 minus the title length. A 25-character title leaves 262. Over the limit, nothing is posted and a review-queue Issue gives the exact number to cut.
 
 ### Guide
 
